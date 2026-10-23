@@ -8,7 +8,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import de.wtzg.domino.data.TrainingRepository
 import de.wtzg.domino.training.Difficulty
-import de.wtzg.domino.training.End
 import de.wtzg.domino.training.Evaluation
 import de.wtzg.domino.training.Move
 import de.wtzg.domino.training.Round
@@ -56,6 +55,10 @@ class PracticeViewModel(app: Application) : AndroidViewModel(app) {
     var selected by mutableStateOf<Tile?>(null)
         private set
     var lastPlaced by mutableStateOf<Tile?>(null)
+        private set
+
+    /** Who placed [lastPlaced], so the table can slide it in from the right side. */
+    var lastPlacedBy by mutableStateOf(YOU)
         private set
     var aiThinking by mutableStateOf(false)
         private set
@@ -122,9 +125,11 @@ class PracticeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun playSelected(end: End) {
-        val tile = selected ?: return
-        play(Move(tile, end))
+    /** Plays [move] if it's your turn and legal (e.g. from tapping a spot on the table). */
+    fun playMove(move: Move) {
+        val r = round ?: return
+        if (r.isOver || r.turn != YOU || aiThinking || move !in r.legalMoves()) return
+        play(move)
     }
 
     private fun play(move: Move) {
@@ -162,6 +167,7 @@ class PracticeViewModel(app: Application) : AndroidViewModel(app) {
         }
         round = r.play(move)
         lastPlaced = move.tile
+        lastPlacedBy = YOU
         selected = null
         hint = null
         afterTurn()
@@ -231,6 +237,7 @@ class PracticeViewModel(app: Application) : AndroidViewModel(app) {
                 note.append("It played ${Strategy.describe(move, r.board)}.")
                 round = r.play(move)
                 lastPlaced = move.tile
+                lastPlacedBy = AI
             } else {
                 note.append("The AI passed. It has no $reveal.")
                 round = r.pass()

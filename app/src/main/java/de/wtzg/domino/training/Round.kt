@@ -23,7 +23,11 @@ data class Move(val tile: Tile, val end: End)
 /** A tile on the line of play, turned so [left] faces the left end. */
 data class Placed(val tile: Tile, val left: Int, val right: Int)
 
-data class Board(val line: List<Placed> = emptyList()) {
+/**
+ * The line of play, left to right. [origin] is the index of the opening tile;
+ * tiles added on the left shift it.
+ */
+data class Board(val line: List<Placed> = emptyList(), val origin: Int = 0) {
     val isEmpty: Boolean get() = line.isEmpty()
     val leftEnd: Int? get() = line.firstOrNull()?.left
     val rightEnd: Int? get() = line.lastOrNull()?.right
@@ -36,10 +40,10 @@ data class Board(val line: List<Placed> = emptyList()) {
         if (isEmpty) return Board(listOf(Placed(t, t.a, t.b)))
         return if (move.end == End.LEFT) {
             val n = leftEnd!!
-            Board(listOf(Placed(t, t.other(n), n)) + line)
+            Board(listOf(Placed(t, t.other(n), n)) + line, origin + 1)
         } else {
             val n = rightEnd!!
-            Board(line + Placed(t, n, t.other(n)))
+            Board(line + Placed(t, n, t.other(n)), origin)
         }
     }
 

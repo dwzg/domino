@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
@@ -47,6 +48,7 @@ fun DominoTile(
     faceDown: Boolean = false,
     highlighted: Boolean = false,
     dimmed: Boolean = false,
+    elevation: Dp = 0.dp,
     onClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(half * 0.18f)
@@ -56,6 +58,7 @@ fun DominoTile(
         modifier
             .size(if (vertical) half else half * 2, if (vertical) half * 2 else half)
             .alpha(if (dimmed) 0.4f else 1f)
+            .shadow(elevation, shape)
             .clip(shape)
             .background(if (faceDown) back else Ivory)
             .border(if (highlighted) 3.dp else 1.dp, ring, shape)
