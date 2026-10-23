@@ -14,6 +14,12 @@ A small Android app for keeping score in domino games.
   (a tie for first place means another round is played)
 - Game is saved automatically – close the app and pick up where you left off
 - Past games list with a win count per player
+- **Training tab**: play Draw dominoes (double-six) against an AI
+  - Easy, Normal and Hard opponents. Hard counts tiles, remembers what you couldn't play and blocks you
+  - A coach rates every move you make and explains what would have been better
+  - Hint button, plus notes on what the AI's draws and passes reveal
+  - 8 lessons (pip counting, doubles, keeping options open, controlling a number,
+    reading your opponent, counting to block, endgame) and progress stats
 - Light/dark theme, Material You colors on Android 12+
 
 ## Install
