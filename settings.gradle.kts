@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Domino"
 include(":app")
+include(":engine")

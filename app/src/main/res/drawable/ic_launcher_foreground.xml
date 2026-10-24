@@ -10,23 +10,23 @@
         android:pathData="M42,26 h24 a6,6 0 0 1 6,6 v44 a6,6 0 0 1 -6,6 h-24 a6,6 0 0 1 -6,-6 v-44 a6,6 0 0 1 6,-6 z" />
     <!-- Divider -->
     <path
-        android:fillColor="#1B5E20"
+        android:fillColor="#1E6B3A"
         android:pathData="M40,53 h28 v2 h-28 z" />
     <!-- Top half: 2 pips -->
     <path
-        android:fillColor="#1B5E20"
+        android:fillColor="#1E6B3A"
         android:pathData="M47,35 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
     <path
-        android:fillColor="#1B5E20"
+        android:fillColor="#1E6B3A"
         android:pathData="M61,45 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
     <!-- Bottom half: 3 pips -->
     <path
-        android:fillColor="#1B5E20"
+        android:fillColor="#1E6B3A"
         android:pathData="M47,63 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
     <path
-        android:fillColor="#1B5E20"
+        android:fillColor="#1E6B3A"
         android:pathData="M54,68 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
     <path
-        android:fillColor="#1B5E20"
+        android:fillColor="#1E6B3A"
         android:pathData="M61,73 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0" />
 </vector>
