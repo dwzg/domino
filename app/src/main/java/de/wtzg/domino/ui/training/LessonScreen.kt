@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -61,6 +62,23 @@ fun LessonScreen(index: Int, onBack: () -> Unit, onOpen: (Int) -> Unit) {
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             block.tiles.forEach { DominoTile(it.a, it.b, half = 22.dp) }
                         }
+                        Text(
+                            block.caption,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    is LessonBlock.Line -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        TableView(
+                            board = block.board,
+                            lastPlaced = null,
+                            lastPlacedByAi = false,
+                            targets = emptyList(),
+                            onTarget = {},
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(150.dp),
+                        )
                         Text(
                             block.caption,
                             style = MaterialTheme.typography.bodySmall,

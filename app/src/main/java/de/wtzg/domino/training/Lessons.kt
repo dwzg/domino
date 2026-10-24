@@ -4,6 +4,12 @@ sealed interface LessonBlock {
     data class Text(val text: String) : LessonBlock
     data class Tiles(val tiles: List<Tile>, val caption: String) : LessonBlock
     data class Tip(val text: String) : LessonBlock
+
+    /** Tiles played in order onto a line (first one opens), shown as on the table. */
+    data class Line(val tiles: List<Tile>, val caption: String) : LessonBlock {
+        val board: Board
+            get() = tiles.fold(Board()) { b, t -> b.play(Move(t, End.RIGHT)) }
+    }
 }
 
 data class Lesson(val title: String, val summary: String, val blocks: List<LessonBlock>)
@@ -24,7 +30,7 @@ object Lessons {
                     "The highest double opens the first hand. After that, the winner of the previous hand leads " +
                         "with any tile. On your turn, play a tile that matches one of the two open ends."
                 ),
-                LessonBlock.Tiles(listOf(t(6, 6), t(6, 3), t(3, 1)), "6|6 opened, then 6|3, then 3|1. The open ends are 6 and 1."),
+                LessonBlock.Line(listOf(t(6, 6), t(6, 3), t(3, 1)), "6|6 opened, then 6|3, then 3|1. Touching halves always match. The open ends are 6 and 1."),
                 LessonBlock.Text(
                     "If nothing fits, draw from the boneyard until something does. If the boneyard is empty, you pass. " +
                         "When both players pass in a row, the game is blocked."
@@ -118,7 +124,7 @@ object Lessons {
                     "Use it. Try to keep a 4 or a 1 on the ends. If both ends show numbers they lack, " +
                         "they must draw again or pass while you keep playing."
                 ),
-                LessonBlock.Tiles(listOf(t(4, 4), t(4, 1)), "After the AI draws on 4 and 1, keep 4s and 1s showing."),
+                LessonBlock.Line(listOf(t(4, 4), t(4, 1)), "The AI drew when the ends were 4 and 1. Keep 4s and 1s showing."),
                 LessonBlock.Text(
                     "This knowledge goes stale when they draw. A drawn tile might bring back a number. " +
                         "Only the numbers that made them draw are sure."
@@ -137,7 +143,7 @@ object Lessons {
                 LessonBlock.Text(
                     "Remember the double counts as one tile. The 7 tiles with a 2 are 2|0, 2|1, 2|2, 2|3, 2|4, 2|5 and 2|6."
                 ),
-                LessonBlock.Tiles(listOf(t(2, 0), t(2, 1), t(2, 2), t(3, 2), t(4, 2), t(5, 2), t(6, 2)), "All seven 2s."),
+                LessonBlock.Tiles(listOf(t(2, 0), t(2, 1), t(2, 2), t(2, 3), t(2, 4), t(2, 5), t(2, 6)), "All seven 2s."),
                 LessonBlock.Tip("Before blocking the whole game, compare pips: a blocked game goes to the lighter hand."),
             ),
         ),
