@@ -1,5 +1,6 @@
 package de.wtzg.domino.feature.play
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -20,13 +21,16 @@ import androidx.compose.runtime.setValue
 fun QuitGameMenu(enabled: Boolean, onQuit: () -> Unit) {
     var menu by rememberSaveable { mutableStateOf(false) }
     var confirm by rememberSaveable { mutableStateOf(false) }
-    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
-    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-        DropdownMenuItem(
-            text = { Text("Quit game") },
-            enabled = enabled,
-            onClick = { menu = false; confirm = true },
-        )
+    // The Box anchors the menu to the button instead of the whole top row.
+    Box {
+        IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(
+                text = { Text("Quit game") },
+                enabled = enabled,
+                onClick = { menu = false; confirm = true },
+            )
+        }
     }
     if (confirm) {
         AlertDialog(
