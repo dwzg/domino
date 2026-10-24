@@ -6,6 +6,7 @@ import de.wtzg.domino.protocol.CreateGameRequest
 import de.wtzg.domino.protocol.GameSummary
 import de.wtzg.domino.protocol.GameView
 import de.wtzg.domino.protocol.Registration
+import de.wtzg.domino.protocol.ServerInfo
 import kotlinx.coroutines.flow.Flow
 
 /** A problem talking to the server, with a message fit to show the player. */
@@ -13,6 +14,9 @@ class OnlineException(message: String, val status: Int? = null) : Exception(mess
 
 /** The game server, as the app uses it. */
 interface OnlineApi {
+    /** Which protocols the server speaks. Servers from before /version existed report protocol 1. */
+    suspend fun serverInfo(): ServerInfo
+
     suspend fun register(name: String): Registration
     suspend fun rename(name: String)
     suspend fun games(): List<GameSummary>

@@ -8,7 +8,9 @@ FROM --platform=$BUILDPLATFORM eclipse-temurin:17-jdk AS build
 WORKDIR /src
 COPY . .
 ENV DOMINO_SERVER_ONLY=1
-RUN ./gradlew --no-daemon :server:installDist
+# Release version reported by GET /version (set by the release workflow).
+ARG APP_VERSION=dev
+RUN ./gradlew --no-daemon :server:installDist -PappVersion="$APP_VERSION"
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app

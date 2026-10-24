@@ -113,6 +113,17 @@ fun OnlineHomeScreen(
                 account.serverUrl.isBlank() -> item { ServerSetup(state.busy, vm::setServer) }
                 reg == null -> item { ChooseName(account.serverUrl, state.busy, vm::register, vm::setServer) }
                 else -> {
+                    state.compatibility?.let { msg ->
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                ),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text(msg, modifier = Modifier.padding(16.dp)) }
+                        }
+                    }
                     item { Identity(reg.name, vm::rename) }
                     item {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -161,7 +172,7 @@ private fun ServerSetup(busy: Boolean, onSave: (String) -> Unit) {
                 value = url,
                 onValueChange = { url = it },
                 label = { Text("Server address") },
-                placeholder = { Text("my-dominoes.fly.dev") },
+                placeholder = { Text("dominoes.example.com") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = { if (url.isNotBlank()) onSave(url) }),

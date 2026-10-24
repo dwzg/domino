@@ -23,7 +23,21 @@ data class OnlineHomeState(
     val error: String? = null,
     /** A game to open next (after creating or joining). Cleared once opened. */
     val open: String? = null,
+    /** Set when this app and the server can't fully work together; says who should update. */
+    val compatibility: String? = null,
 )
+
+/** The oldest server protocol this app needs. Raise only when the app relies on something new. */
+const val REQUIRED_SERVER_PROTOCOL = 1
+
+/** A message when app and server can't fully work together, or null when all is well. */
+fun compatibilityProblem(info: de.wtzg.domino.protocol.ServerInfo): String? = when {
+    info.minProtocol > de.wtzg.domino.protocol.ProtocolVersion.CURRENT ->
+        "This app is too old for the server. Please update the app to keep playing online."
+    info.protocol < REQUIRED_SERVER_PROTOCOL ->
+        "The server is older than this app. Ask whoever hosts it to update it."
+    else -> null
+}
 
 /** What the online games screen can ask for. */
 interface OnlineHomeActions {
@@ -47,6 +61,7 @@ class OnlineHomeViewModel(
         viewModelScope.launch {
             repo.account.distinctUntilChanged().collect { a ->
                 _state.update { it.copy(account = a, games = if (a.registration == null) emptyList() else it.games) }
+                if (a.serverUrl.isNotBlank()) checkServer()
                 if (a.registration != null) refresh()
             }
         }
@@ -60,6 +75,16 @@ class OnlineHomeViewModel(
         } finally {
             _state.update { it.copy(loading = false) }
         }
+    }
+
+    /** Asks the server which protocols it speaks; failures here are reported by the next real call. */
+    private fun checkServer() = viewModelScope.launch {
+        val problem = try {
+            compatibilityProblem(repo.api().serverInfo())
+        } catch (_: OnlineException) {
+            null
+        }
+        _state.update { it.copy(compatibility = problem) }
     }
 
     override fun setServer(url: String) = launchSafely { settings.update { it.copy(serverUrl = url.trim()) } }

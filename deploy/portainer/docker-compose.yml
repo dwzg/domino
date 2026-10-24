@@ -1,7 +1,6 @@
 # Portainer stack: the dominoes game server on its own.
-# Use this if your VPS already has a reverse proxy (Nginx Proxy Manager, Traefik, ...)
-# that handles HTTPS. Point it at this container's port 8080 with WebSockets enabled.
-# Steps: docs/ONLINE.md → "Your own server with Portainer".
+# Runs behind Nginx Proxy Manager, which handles HTTPS: forward your domain to
+# http://dominoes:8080 with WebSockets enabled. Steps: docs/ONLINE.md.
 services:
   dominoes:
     image: ghcr.io/dwzg/domino-server:latest
@@ -17,5 +16,5 @@ volumes:
   dominoes-data:
 networks:
   default:
-    external:
-      name: nginx-proxy-network
+    name: nginx-proxy-network
+    external: true

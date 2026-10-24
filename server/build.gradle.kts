@@ -21,6 +21,21 @@ application {
     mainClass.set("de.wtzg.domino.server.MainKt")
 }
 
+// The release version (./gradlew -PappVersion=2.1.0), reported by GET /version.
+val serverVersion = (project.findProperty("appVersion") as String?) ?: "dev"
+val writeVersion by tasks.registering {
+    val out = layout.buildDirectory.dir("generated/version")
+    inputs.property("version", serverVersion)
+    outputs.dir(out)
+    doLast {
+        out.get().file("domino-server.properties").asFile.apply {
+            parentFile.mkdirs()
+            writeText("version=$serverVersion\n")
+        }
+    }
+}
+sourceSets.main { resources.srcDir(writeVersion) }
+
 dependencies {
     implementation(project(":protocol"))
     implementation(libs.ktor.server.core)

@@ -214,7 +214,7 @@ private fun ServerSetting(current: String, onSave: (String) -> Unit) {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("The address of the game server you and your friends use.", style = MaterialTheme.typography.bodyMedium)
-                    OutlinedTextField(value = value, onValueChange = { value = it }, singleLine = true, placeholder = { Text("my-dominoes.fly.dev") })
+                    OutlinedTextField(value = value, onValueChange = { value = it }, singleLine = true, placeholder = { Text("dominoes.example.com") })
                 }
             },
             confirmButton = { TextButton(onClick = { editing = false; onSave(value) }) { Text("Save") } },

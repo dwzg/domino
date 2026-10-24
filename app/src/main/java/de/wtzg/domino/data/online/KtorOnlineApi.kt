@@ -10,7 +10,11 @@ import de.wtzg.domino.protocol.GameView
 import de.wtzg.domino.protocol.JoinRequest
 import de.wtzg.domino.protocol.ProtocolJson
 import de.wtzg.domino.protocol.RegisterRequest
+import de.wtzg.domino.protocol.ProtocolVersion
 import de.wtzg.domino.protocol.Registration
+import de.wtzg.domino.protocol.ServerInfo
+import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
 import de.wtzg.domino.protocol.RenameRequest
 import de.wtzg.domino.protocol.StartRequest
 import io.ktor.client.HttpClient
@@ -43,9 +47,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import java.io.IOException
 
-/** Builds the HTTP client used for the game server. */
-fun onlineHttpClient(engine: io.ktor.client.engine.HttpClientEngine? = null): HttpClient {
+/**
+ * Builds the HTTP client used for the game server. Every request says which protocol
+ * this app speaks, so the server can stay compatible with it.
+ */
+fun onlineHttpClient(
+    engine: io.ktor.client.engine.HttpClientEngine? = null,
+    appVersion: String = de.wtzg.domino.BuildConfig.VERSION_NAME,
+): HttpClient {
     val config: io.ktor.client.HttpClientConfig<*>.() -> Unit = {
+        defaultRequest {
+            header(ProtocolVersion.HEADER, ProtocolVersion.CURRENT.toString())
+            header(HttpHeaders.UserAgent, "Dominoes/$appVersion")
+        }
         install(ContentNegotiation) { json(ProtocolJson) }
         install(WebSockets)
         install(HttpTimeout) {
@@ -93,6 +107,13 @@ class KtorOnlineApi(
         setBody(body)
     }
 
+    override suspend fun serverInfo(): ServerInfo = try {
+        call { client.get { endpoint("/version") } }
+    } catch (e: OnlineException) {
+        // Servers from before /version existed speak protocol 1.
+        if (e.status == 404) ServerInfo(version = "unknown", protocol = 1, minProtocol = 1) else throw e
+    }
+
     override suspend fun register(name: String): Registration =
         call { client.post { endpoint("/players"); jsonBody(RegisterRequest(name)) } }
 
@@ -129,11 +150,12 @@ class KtorOnlineApi(
         val ws = URLBuilder().takeFrom(baseUrl.trimEnd('/') + "/games/$id/live").apply {
             protocol = if (protocol == URLProtocol.HTTPS) URLProtocol.WSS else URLProtocol.WS
             parameters.append("token", token.orEmpty())
+            parameters.append("protocol", ProtocolVersion.CURRENT.toString())
         }.buildString()
         var backoff = 1_000L
         while (true) {
             try {
-                client.webSocket(ws) {
+                client.webSocket(ws, request = { header(ProtocolVersion.HEADER, ProtocolVersion.CURRENT.toString()) }) {
                     backoff = 1_000L
                     for (frame in incoming) {
                         if (frame is Frame.Text) emit(ProtocolJson.decodeFromString(GameView.serializer(), frame.readText()))

@@ -66,7 +66,7 @@ You need JDK 17 or newer and the Android SDK (API 35).
 ./gradlew :app:assembleRelease      # app/build/outputs/apk/release/app-release.apk
 ```
 
-To run the game server locally, use `./gradlew :server:run`. To host it, see [docs/ONLINE.md](docs/ONLINE.md): there are ready-made Portainer stacks in `deploy/portainer/`, and Fly.io works too. The server image is published to `ghcr.io/dwzg/domino-server`.
+To run the game server locally, use `./gradlew :server:run`. To host it with Portainer, see [docs/ONLINE.md](docs/ONLINE.md) and `deploy/portainer/docker-compose.yml`. The server image is published to `ghcr.io/dwzg/domino-server`. App and server stay compatible across versions (see "Compatibility" in the same doc).
 
 ## Releases
 

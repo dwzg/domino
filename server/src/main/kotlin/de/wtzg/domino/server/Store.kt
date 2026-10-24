@@ -39,24 +39,46 @@ class InMemoryStore : Store {
  */
 class SqliteStore(path: String) : Store {
     private val conn: Connection = DriverManager.getConnection("jdbc:sqlite:$path")
+    private val log = org.slf4j.LoggerFactory.getLogger(SqliteStore::class.java)
 
     init {
-        conn.createStatement().use { st ->
-            st.executeUpdate("PRAGMA journal_mode=WAL")
-            st.executeUpdate(
+        conn.createStatement().use { it.executeUpdate("PRAGMA journal_mode=WAL") }
+        migrate()
+    }
+
+    /**
+     * Schema changes are numbered steps, applied once each and only ever adding things,
+     * so a database keeps working when the server is updated, and an older server can
+     * still read a database a newer one has touched (game records are JSON with defaults).
+     */
+    private fun migrate() {
+        val current = conn.createStatement().use { st -> st.executeQuery("PRAGMA user_version").use { it.next(); it.getInt(1) } }
+        if (current > MIGRATIONS.size) {
+            log.warn("Database schema $current is newer than this server knows (${MIGRATIONS.size}); running anyway.")
+            return
+        }
+        MIGRATIONS.drop(current).forEachIndexed { i, step ->
+            conn.createStatement().use { st ->
+                step.forEach(st::executeUpdate)
+                st.executeUpdate("PRAGMA user_version = ${current + i + 1}")
+            }
+        }
+    }
+
+    private companion object {
+        /** Append new steps at the end; never edit or remove one that has shipped. */
+        val MIGRATIONS: List<List<String>> = listOf(
+            // 1: first release
+            listOf(
                 "CREATE TABLE IF NOT EXISTS players (id TEXT PRIMARY KEY, name TEXT NOT NULL, " +
                     "token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL)",
-            )
-            st.executeUpdate(
                 "CREATE TABLE IF NOT EXISTS games (id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE, " +
                     "data TEXT NOT NULL, updated_at INTEGER NOT NULL)",
-            )
-            st.executeUpdate(
                 "CREATE TABLE IF NOT EXISTS game_players (game_id TEXT NOT NULL, player_id TEXT NOT NULL, " +
                     "PRIMARY KEY (game_id, player_id))",
-            )
-            st.executeUpdate("CREATE INDEX IF NOT EXISTS game_players_player ON game_players(player_id)")
-        }
+                "CREATE INDEX IF NOT EXISTS game_players_player ON game_players(player_id)",
+            ),
+        )
     }
 
     private fun <T> locked(block: Connection.() -> T): T = synchronized(conn) { conn.block() }
