@@ -1,13 +1,20 @@
 name: Server image
 
 # Builds the game server's Docker image on every push and pull request, and publishes
-# it to GitHub Container Registry (ghcr.io/<owner>/domino-server) from main and tags.
+# it to GitHub Container Registry (ghcr.io/<owner>/domino-server):
+# - "latest" and the short commit from main
+# - the version number (e.g. 2.1.0 and 2.1) when called by the Release workflow
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: Release version, e.g. 2.1.0
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -33,8 +40,9 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/domino-server
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=ref,event=tag
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || inputs.version != '' }}
+            type=semver,pattern={{version}},value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version }},enable=${{ inputs.version != '' }}
             type=sha,format=short
       - uses: docker/build-push-action@v6
         with:

@@ -68,8 +68,14 @@ You need JDK 17 or newer and the Android SDK (API 35).
 
 To run the game server locally, use `./gradlew :server:run`. To host it, see [docs/ONLINE.md](docs/ONLINE.md): there are ready-made Portainer stacks in `deploy/portainer/`, and Fly.io works too. The server image is published to `ghcr.io/dwzg/domino-server`.
 
-Every push builds the APK on GitHub Actions. Download it as the `domino-apk` artifact from the **Build APK** run.
+## Releases
 
-The release build is signed with the debug key so it installs without extra setup. Use your own signing key before publishing to the Play Store.
+Download the app from the repository's **Releases** page. Each release comes with an APK signed with the permanent release key, so it installs over the previous one, and with a matching server image (`ghcr.io/dwzg/domino-server:<version>`).
+
+To publish a release, go to **Actions → Release → Run workflow** and enter a version such as `2.1.0`. The one-time setup is in [docs/RELEASING.md](docs/RELEASING.md).
+
+The app connects to the server set as `dominoServerUrl` in `gradle.properties`, currently `https://dominoes.convoluted.space`. Players can change it under More → Settings.
+
+Every push also builds a test APK as the `domino-apk` artifact of the **Build APK** run. It's signed with a temporary key, so it can't update a release.
 
 Not affiliated with Rockstar Games.
