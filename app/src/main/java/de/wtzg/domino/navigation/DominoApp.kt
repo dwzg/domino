@@ -55,6 +55,7 @@ import de.wtzg.domino.feature.play.GameScreen
 import de.wtzg.domino.feature.play.GameSetupScreen
 import de.wtzg.domino.feature.play.GameViewModel
 import de.wtzg.domino.feature.play.PlayHomeScreen
+import de.wtzg.domino.feature.play.QuitGameMenu
 import de.wtzg.domino.feature.play.toTable
 import de.wtzg.domino.feature.scorekeeper.ScoreGameScreen
 import de.wtzg.domino.feature.scorekeeper.ScoreHistoryScreen
@@ -182,6 +183,12 @@ private fun AppNavHost(
                     onOverlaySecondary = {
                         gameVm.quit()
                         nav.popBackStack(PlayRoute, inclusive = false)
+                    },
+                    topActions = {
+                        QuitGameMenu(enabled = game.match?.isOver == false) {
+                            gameVm.quit()
+                            nav.popBackStack(PlayRoute, inclusive = false)
+                        }
                     },
                 )
             }
