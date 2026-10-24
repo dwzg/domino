@@ -2,6 +2,7 @@ package de.wtzg.domino.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
@@ -24,7 +25,7 @@ class AppNavigationTest {
         rule.waitUntil(5_000) { rule.onAllNodesWithText("All Fives").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("All Fives").performClick()
         rule.onNodeWithText("Start game").performScrollTo().performClick()
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("Hint").fetchSemanticsNodes().isNotEmpty() }
+        rule.waitUntil(5_000) { rule.onAllNodesWithContentDescription("Hint").fetchSemanticsNodes().isNotEmpty() }
         rule.onNodeWithText("All Fives · to 100").assertIsDisplayed()
     }
 

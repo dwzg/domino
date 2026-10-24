@@ -59,6 +59,8 @@ If you get **502 Bad Gateway**, Nginx Proxy Manager can't reach the container. C
 ### Updating
 
 Open the stack in Portainer and choose **Update the stack** with **Re-pull image** on.
+Releases can also do this for you through a Portainer webhook; see
+[RELEASING.md](RELEASING.md#automatically-with-a-portainer-webhook).
 Games in progress, players and their identities are kept. To stay on a specific release,
 use e.g. `ghcr.io/dwzg/domino-server:2.1.0` as the image and change it deliberately.
 

@@ -8,6 +8,8 @@ A release is a version number like `2.1.0`. Releasing one:
 - publishes a GitHub Release `v2.1.0` with `dominoes-2.1.0.apk` attached and
   generated release notes
 - publishes the server image as `ghcr.io/dwzg/domino-server:2.1.0`, `:2.1` and `:latest`
+- updates your server through a Portainer webhook, if you've set one up, and waits
+  until `/version` reports the new version
 
 ## One-time setup: the signing key
 
@@ -51,6 +53,36 @@ Without `DOMINO_KEYSTORE` the APK is signed with your local debug key. That's fi
 testing, but it can't update an installed release.
 
 ## Updating the server
+
+### Automatically, with a Portainer webhook
+
+1. In Portainer, open the stack, go to the **Editor** tab, turn on **Create a stack webhook**
+   and click **Copy link**. The link looks like
+   `https://<portainer>/api/stacks/webhooks/<id>`.
+2. On GitHub, add it as the repository secret `PORTAINER_WEBHOOK_URL`
+   (**Settings → Secrets and variables → Actions**).
+
+From then on, each release calls the webhook after the image is published. Portainer
+pulls the new `latest` image and recreates the container. The workflow then checks
+`https://dominoes.convoluted.space/version` (the `dominoServerUrl` from
+`gradle.properties`) until it reports the new version, and fails if that takes longer than
+5 minutes. To release without touching the server, untick **Update the server** when
+starting the workflow.
+
+Things to know:
+- Stack webhooks are part of Portainer **Business Edition** (free for up to 3 nodes).
+  Community Edition doesn't offer them for stacks made in the web editor.
+- GitHub's servers must be able to reach Portainer, so its address must be public
+  (for example a proxy host in Nginx Proxy Manager). Port 9443 directly works too, but
+  Portainer's self-signed certificate will be refused.
+- Keep the link secret: anyone who has it can redeploy the stack. If it leaks, turn the
+  webhook off and on again in Portainer to get a new one.
+- The stack must use the `latest` tag (as `deploy/portainer/docker-compose.yml` does).
+  A stack pinned to a version, like `:2.1.0`, is only redeployed with that same version.
+
+Without a webhook, the release only publishes the image, and you update by hand.
+
+### By hand
 
 In Portainer, open the stack and choose **Update the stack** with **Re-pull image** on.
 To stay on a specific release instead of `latest`, use `ghcr.io/dwzg/domino-server:2.1.0`

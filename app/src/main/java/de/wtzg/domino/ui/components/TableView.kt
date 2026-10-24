@@ -14,6 +14,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -54,7 +55,7 @@ import kotlin.math.roundToInt
 private val UNIT = 24.dp
 
 /** Largest zoom, so a near-empty table doesn't show giant tiles. */
-private const val MAX_ZOOM = 1.5f
+private const val MAX_ZOOM = 2.2f
 
 /** A spot on the table the player can tap to play a tile there. */
 data class TableTarget(val move: Move, val isHint: Boolean)
@@ -78,6 +79,8 @@ fun TableView(
     /** Row width in half-tiles; narrower rows suit tall (portrait) tables. */
     halfWidth: Float = BoardLayout.HALF_WIDTH,
     showEnds: Boolean = true,
+    /** A line above the open ends, e.g. the game and target. */
+    caption: String? = null,
 ) {
     val laid = remember(board, halfWidth) { BoardLayout.layout(board, halfWidth) }
     val slots = remember(board, targets, halfWidth) { targets.map { it to BoardLayout.slot(board, it.move, halfWidth) } }
@@ -92,13 +95,14 @@ fun TableView(
         val widthPx = constraints.maxWidth.toFloat()
         val heightPx = constraints.maxHeight.toFloat()
 
-        // Fit all tiles plus the tap targets, with a margin.
+        // Fit all tiles plus the tap targets, with a margin, keeping room for the label at the top.
         val all = laid + slots.map { it.second }
+        val labelRoom = if (showEnds || caption != null) (if (caption != null) 2.2f else 1.2f) else 0f
         val minX = all.minOfOrNull { it.x } ?: -1f
         val maxX = all.maxOfOrNull { it.x + it.w } ?: 1f
-        val minY = all.minOfOrNull { it.y } ?: -1f
+        val minY = (all.minOfOrNull { it.y } ?: -1f) - labelRoom
         val maxY = all.maxOfOrNull { it.y + it.h } ?: 1f
-        val margin = 1.2f
+        val margin = 0.6f
         val fit = min(
             widthPx / ((maxX - minX + 2 * margin) * unitPx),
             heightPx / ((maxY - minY + 2 * margin) * unitPx),
@@ -136,15 +140,20 @@ fun TableView(
                 color = Color.White.copy(alpha = 0.7f),
                 modifier = Modifier.align(Alignment.Center),
             )
-        } else if (showEnds) {
-            Text(
-                endsLabel(board),
-                color = Color.White.copy(alpha = 0.85f),
-                style = MaterialTheme.typography.labelMedium,
-                modifier = Modifier
+        }
+        if (caption != null || (showEnds && !board.isEmpty)) {
+            Column(
+                Modifier
                     .align(Alignment.TopStart)
                     .padding(10.dp),
-            )
+            ) {
+                caption?.let {
+                    Text(it, color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                }
+                if (showEnds && !board.isEmpty) {
+                    Text(endsLabel(board), color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.labelMedium)
+                }
+            }
         }
 
         badge?.let { b -> key(b.id) { Badge(b.text, Modifier.align(Alignment.Center)) } }
