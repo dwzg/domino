@@ -163,22 +163,31 @@ private fun Panel(state: PuzzleUiState, p: Puzzle, onTapTile: (de.wtzg.domino.en
         Text("${state.selected} fits more than one end. Tap a glowing spot on the table.", style = MaterialTheme.typography.bodyMedium)
     }
     val legal = r.legalMoves()
-    FlowRow(
+    val hand = r.hands[0]
+    val gap = if (hand.size > 9) 4.dp else 6.dp
+    BoxWithConstraints(
         Modifier
             .fillMaxWidth()
             .padding(bottom = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        r.hands[0].forEach { t ->
-            DominoTile(
-                t.a, t.b,
-                half = 24.dp,
-                highlighted = t == state.selected || (state.answer != null && t == p.best.move.tile),
-                dimmed = legal.none { it.tile == t },
-                elevation = 2.dp,
-                onClick = { onTapTile(t) },
-            )
+        // Same sizing as the hand in a game: as big as fits on one row, up to the game's maximum.
+        val n = hand.size.coerceAtLeast(1)
+        val half = ((maxWidth - 1.dp - gap * (n - 1)) / n).coerceIn(18.dp, 44.dp)
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(gap),
+        ) {
+            hand.forEach { t ->
+                DominoTile(
+                    t.a, t.b,
+                    half = half,
+                    highlighted = t == state.selected || (state.answer != null && t == p.best.move.tile),
+                    dimmed = legal.none { it.tile == t },
+                    elevation = 2.dp,
+                    onClick = { onTapTile(t) },
+                )
+            }
         }
     }
 }
