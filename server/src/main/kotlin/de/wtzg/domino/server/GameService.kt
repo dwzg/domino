@@ -15,6 +15,7 @@ import de.wtzg.domino.protocol.Limits
 import de.wtzg.domino.protocol.PublicEvent
 import de.wtzg.domino.protocol.Registration
 import de.wtzg.domino.protocol.SeatView
+import de.wtzg.domino.protocol.sinceProtocol
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.security.MessageDigest
@@ -32,6 +33,12 @@ private fun badRequest(msg: String): Nothing = throw ApiException(400, msg)
 private fun forbidden(msg: String): Nothing = throw ApiException(403, msg)
 private fun notFound(msg: String): Nothing = throw ApiException(404, msg)
 private fun conflict(msg: String): Nothing = throw ApiException(409, msg)
+private fun updateApp(msg: String): Nothing = throw ApiException(426, msg)
+
+/** Refuses games an app speaking [protocol] can't show (e.g. a newer game mode). */
+private fun GameRecord.requireProtocol(protocol: Int) {
+    if (rules.mode.sinceProtocol > protocol) updateApp("This game needs a newer version of the app. Please update it.")
+}
 
 private val AI_NAMES = listOf("Rosa", "Hank", "Mabel", "Otis")
 private const val CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // no 0/O or 1/I mix-ups
@@ -106,8 +113,9 @@ class GameService(
         error("Couldn't find a free game code")
     }
 
-    suspend fun join(player: PlayerRecord, code: String): GameRecord {
+    suspend fun join(player: PlayerRecord, code: String, protocol: Int = 1): GameRecord {
         val g0 = store.gameByCode(code.trim().uppercase()) ?: notFound("No game with that code")
+        g0.requireProtocol(protocol)
         return withGame(g0.id) { g ->
             if (g.seatOf(player.id) >= 0) return@withGame g
             if (g.status != GameStatus.LOBBY) conflict("That game has already started")
@@ -207,13 +215,17 @@ class GameService(
 
     // --- Views -------------------------------------------------------------------------------
 
-    fun game(player: PlayerRecord, id: String): GameRecord {
+    fun game(player: PlayerRecord, id: String, protocol: Int = 1): GameRecord {
         val g = store.game(id) ?: notFound("No such game")
         if (g.seatOf(player.id) < 0) forbidden("You're not at this table")
+        g.requireProtocol(protocol)
         return g
     }
 
-    fun gamesOf(player: PlayerRecord): List<GameSummary> = store.gamesOf(player.id).map { g ->
+    /** Your games, leaving out any an app speaking [protocol] couldn't show. */
+    fun gamesOf(player: PlayerRecord, protocol: Int = 1): List<GameSummary> = store.gamesOf(player.id)
+        .filter { it.rules.mode.sinceProtocol <= protocol }
+        .map { g ->
         GameSummary(
             id = g.id,
             code = g.code,
@@ -230,8 +242,8 @@ class GameService(
         )
     }.sortedWith(compareByDescending<GameSummary> { it.isYourTurn }.thenByDescending { it.updatedAt })
 
-    /** The game as [playerId] may see it. */
-    fun view(g: GameRecord, playerId: String, online: Set<String> = emptySet()): GameView {
+    /** The game as [playerId] may see it, in a form an app speaking [protocol] understands. */
+    fun view(g: GameRecord, playerId: String, online: Set<String> = emptySet(), protocol: Int = 1): GameView {
         val you = g.seatOf(playerId)
         val m = g.match
         val r = m?.round
@@ -262,7 +274,7 @@ class GameService(
             hand = if (r != null && you >= 0) r.hands[you] else emptyList(),
             opening = r?.opening?.takeIf { you >= 0 && r.turn == you },
             lacks = r?.lacks ?: List(g.seats.size) { emptySet() },
-            events = r?.events?.map { it.toPublic() } ?: emptyList(),
+            events = r?.events?.map { it.toPublic() }?.filter { it.sinceProtocol <= protocol } ?: emptyList(),
             lastHand = g.lastHand,
             winner = m?.winner,
             updatedAt = g.updatedAt,

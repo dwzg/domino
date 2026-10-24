@@ -1,0 +1,1 @@
+[{"type":"played","seat":0,"move":{"tile":{"a":5,"b":5},"arm":"EAST"},"points":10},{"type":"drew","seat":1,"ends":[5,3]},{"type":"passed","seat":2,"ends":[5,3]}]

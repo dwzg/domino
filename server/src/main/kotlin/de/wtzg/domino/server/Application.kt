@@ -5,6 +5,8 @@ import de.wtzg.domino.protocol.ApiError
 import de.wtzg.domino.protocol.CreateGameRequest
 import de.wtzg.domino.protocol.JoinRequest
 import de.wtzg.domino.protocol.ProtocolJson
+import de.wtzg.domino.protocol.ProtocolVersion
+import de.wtzg.domino.protocol.ServerInfo
 import de.wtzg.domino.protocol.RegisterRequest
 import de.wtzg.domino.protocol.RenameRequest
 import de.wtzg.domino.protocol.StartRequest
@@ -38,6 +40,27 @@ import kotlinx.coroutines.flow.onStart
 import org.slf4j.event.Level
 import kotlin.time.Duration.Companion.seconds
 
+/** The release version baked in at build time ("dev" for local builds). */
+val serverVersion: String by lazy {
+    val props = java.util.Properties()
+    Thread.currentThread().contextClassLoader.getResourceAsStream("domino-server.properties")?.use(props::load)
+    props.getProperty("version") ?: "dev"
+}
+
+/**
+ * The protocol the calling app speaks. Apps that don't say (protocol 1) are assumed to be
+ * the first version. Apps older than [ProtocolVersion.MIN_SUPPORTED] are asked to update.
+ */
+fun ApplicationCall.protocol(): Int {
+    val p = request.headers[ProtocolVersion.HEADER]?.toIntOrNull()
+        ?: request.queryParameters["protocol"]?.toIntOrNull()
+        ?: 1
+    if (p < ProtocolVersion.MIN_SUPPORTED) {
+        throw ApiException(426, "This version of the app is too old for the server. Please update the app.")
+    }
+    return p
+}
+
 fun Application.dominoServer(service: GameService, hub: LiveHub) {
     install(ContentNegotiation) { json(ProtocolJson) }
     install(CallLogging) { level = Level.INFO }
@@ -51,46 +74,50 @@ fun Application.dominoServer(service: GameService, hub: LiveHub) {
         }
     }
 
-    fun ApplicationCall.player() =
-        service.authenticate(request.headers["Authorization"]?.removePrefix("Bearer ")?.trim())
+    fun ApplicationCall.player(): PlayerRecord {
+        protocol() // turns away apps that are too old before anything else
+        return service.authenticate(request.headers["Authorization"]?.removePrefix("Bearer ")?.trim())
             ?: throw ApiException(401, "Unknown player; register again")
+    }
 
     routing {
         get("/health") { call.respondText("ok") }
+        get("/version") { call.respond(ServerInfo(serverVersion, ProtocolVersion.CURRENT, ProtocolVersion.MIN_SUPPORTED)) }
 
         post("/players") {
+            call.protocol()
             call.respond(HttpStatusCode.Created, service.register(call.receive<RegisterRequest>().name))
         }
         patch("/players/me") {
             call.respond(service.rename(call.player(), call.receive<RenameRequest>().name))
         }
 
-        get("/games") { call.respond(service.gamesOf(call.player())) }
+        get("/games") { call.respond(service.gamesOf(call.player(), call.protocol())) }
 
         post("/games") {
             val p = call.player()
             val g = service.create(p, call.receive<CreateGameRequest>())
-            call.respond(HttpStatusCode.Created, service.view(g, p.id, hub.online(g.id)))
+            call.respond(HttpStatusCode.Created, service.view(g, p.id, hub.online(g.id), call.protocol()))
         }
 
         post("/games/join") {
             val p = call.player()
-            val g = service.join(p, call.receive<JoinRequest>().code)
+            val g = service.join(p, call.receive<JoinRequest>().code, call.protocol())
             hub.changed(g.id)
-            call.respond(service.view(g, p.id, hub.online(g.id)))
+            call.respond(service.view(g, p.id, hub.online(g.id), call.protocol()))
         }
 
         get("/games/{id}") {
             val p = call.player()
-            val g = service.game(p, call.parameters["id"]!!)
-            call.respond(service.view(g, p.id, hub.online(g.id)))
+            val g = service.game(p, call.parameters["id"]!!, call.protocol())
+            call.respond(service.view(g, p.id, hub.online(g.id), call.protocol()))
         }
 
         post("/games/{id}/start") {
             val p = call.player()
             val g = service.start(p, call.parameters["id"]!!, call.receive<StartRequest>().difficulty)
             hub.changed(g.id)
-            call.respond(service.view(g, p.id, hub.online(g.id)))
+            call.respond(service.view(g, p.id, hub.online(g.id), call.protocol()))
         }
 
         post("/games/{id}/actions") {
@@ -99,15 +126,16 @@ fun Application.dominoServer(service: GameService, hub: LiveHub) {
             val req = call.receive<ActionRequest>()
             val g = service.act(p, id, req.action, req.version)
             hub.changed(id)
-            if (g == null) call.respond(HttpStatusCode.NoContent) else call.respond(service.view(g, p.id, hub.online(id)))
+            if (g == null) call.respond(HttpStatusCode.NoContent) else call.respond(service.view(g, p.id, hub.online(id), call.protocol()))
         }
 
         // Live updates: the server sends your view of the game whenever it changes.
         webSocket("/games/{id}/live") {
             val p = service.authenticate(call.request.queryParameters["token"])
             val id = call.parameters["id"]!!
-            val start = p?.let { runCatching { service.game(it, id) }.getOrNull() }
-            if (p == null || start == null) {
+            val protocol = runCatching { call.protocol() }.getOrNull()
+            val start = if (protocol == null) null else p?.let { runCatching { service.game(it, id, protocol) }.getOrNull() }
+            if (p == null || start == null || protocol == null) {
                 close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "Not allowed"))
                 return@webSocket
             }
@@ -116,7 +144,8 @@ fun Application.dominoServer(service: GameService, hub: LiveHub) {
                 if (g == null) {
                     close(CloseReason(CloseReason.Codes.NORMAL, "Game gone"))
                 } else {
-                    outgoing.send(Frame.Text(ProtocolJson.encodeToString(de.wtzg.domino.protocol.GameView.serializer(), service.view(g, p.id, hub.online(id)))))
+                    val view = service.view(g, p.id, hub.online(id), protocol)
+                    outgoing.send(Frame.Text(ProtocolJson.encodeToString(de.wtzg.domino.protocol.GameView.serializer(), view)))
                 }
             }
             val updates = hub.changes.filter { it == id }.onStart { emit(id) }.onEach { push() }.launchIn(this)

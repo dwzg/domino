@@ -69,6 +69,9 @@ class OnlineEndToEndTest {
     fun friendsCreateJoinAndPlay() = runBlocking {
         val ann = phone("ann")
         val bob = phone("bob")
+        val info = ann.api().serverInfo()
+        assertEquals(de.wtzg.domino.protocol.ProtocolVersion.CURRENT, info.protocol)
+        assertEquals(null, compatibilityProblem(info))
         ann.register("Ann")
         bob.register("Bob")
         assertEquals("Ann", ann.account.first().registration?.name)
