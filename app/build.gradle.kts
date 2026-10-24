@@ -9,16 +9,37 @@ android {
     namespace = "de.wtzg.domino"
     compileSdk = 35
 
+    // Version comes from the release (./gradlew assembleRelease -PappVersion=2.1.0).
+    // versionCode is derived so every release installs over the one before.
+    val appVersion = (project.findProperty("appVersion") as String?) ?: "2.1.0"
+    val (major, minor, patch) = appVersion.split(".").map { it.toInt() }.also {
+        require(it.size == 3) { "appVersion must look like 2.1.0" }
+    }
+
     defaultConfig {
         applicationId = "de.wtzg.domino"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "2.1"
-        // Default online server, e.g. ./gradlew assembleRelease -PdominoServerUrl=https://my-dominoes.fly.dev
-        // Players can also enter a server address in the app.
+        versionCode = major * 10_000 + minor * 100 + patch
+        versionName = appVersion
+        // Online server used unless players enter another one (set in gradle.properties).
         val serverUrl = (project.findProperty("dominoServerUrl") as String?).orEmpty()
         buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
+    }
+
+    // Releases are signed with the permanent release key when it's provided (CI secrets
+    // or local env vars); otherwise with the debug key, which is fine for testing but
+    // can't update an installed release. See docs/RELEASING.md.
+    val releaseKeystore = System.getenv("DOMINO_KEYSTORE")?.takeIf { it.isNotBlank() }
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("DOMINO_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("DOMINO_KEY_ALIAS") ?: "dominoes"
+                keyPassword = System.getenv("DOMINO_KEY_PASSWORD") ?: System.getenv("DOMINO_KEYSTORE_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -26,9 +47,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signed with the debug key so the release APK installs without extra setup.
-            // Use your own key before publishing to the Play Store.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

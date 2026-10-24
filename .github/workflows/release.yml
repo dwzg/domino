@@ -1,0 +1,97 @@
+name: Release
+
+# Publishes a version: runs every test, builds the APK signed with the release key,
+# creates the GitHub Release "vX.Y.Z" with the APK attached, and publishes the
+# server image tagged X.Y.Z. Start it from Actions → Release → Run workflow.
+# One-time setup (signing secrets): docs/RELEASING.md.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to release, e.g. 2.1.0
+        required: true
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check the version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          V="${VERSION#v}"
+          if ! [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must look like 2.1.0 (got '$VERSION')"; exit 1
+          fi
+          if git rev-parse -q --verify "refs/tags/v$V" >/dev/null; then
+            echo "::error::v$V has already been released"; exit 1
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Check the signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "::error::Add the KEYSTORE_BASE64 and KEYSTORE_PASSWORD secrets first (see docs/RELEASING.md)"; exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests
+        run: ./gradlew --no-daemon :engine:test :server:test :app:testDebugUnitTest
+
+      - name: Build the signed APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          DOMINO_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          DOMINO_KEY_ALIAS: dominoes
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          export DOMINO_KEYSTORE="$RUNNER_TEMP/release.jks"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$DOMINO_KEYSTORE"
+          ./gradlew --no-daemon :app:assembleRelease -PappVersion="$VERSION"
+          rm -f "$DOMINO_KEYSTORE"
+          cp app/build/outputs/apk/release/app-release.apk "dominoes-$VERSION.apk"
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Dominoes ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: dominoes-${{ steps.version.outputs.version }}.apk
+          body: |
+            **Install:** download `dominoes-${{ steps.version.outputs.version }}.apk` below and open it on your phone.
+            It installs over earlier releases; your games and stats are kept.
+
+            **Server:** `ghcr.io/${{ github.repository_owner }}/domino-server:${{ steps.version.outputs.version }}`
+            (in Portainer: update the stack with "Re-pull image").
+
+  server:
+    needs: app
+    uses: ./.github/workflows/server-image.yml
+    with:
+      version: ${{ needs.app.outputs.version }}
+    secrets: inherit
