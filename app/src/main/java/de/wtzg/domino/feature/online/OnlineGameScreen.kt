@@ -95,13 +95,16 @@ fun OnlineGameScreen(
             onOverlaySecondary = onBack,
             topActions = {
                 var menu by remember { mutableStateOf(false) }
-                IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
-                DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Leave game") },
-                        enabled = v.status == GameStatus.PLAYING,
-                        onClick = { menu = false; confirmLeave = true },
-                    )
+                // The Box anchors the menu to the button instead of the whole top row.
+                Box {
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Default.MoreVert, contentDescription = "More") }
+                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Leave game") },
+                            enabled = v.status == GameStatus.PLAYING,
+                            onClick = { menu = false; confirmLeave = true },
+                        )
+                    }
                 }
             },
         )
