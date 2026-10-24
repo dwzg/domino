@@ -3,7 +3,7 @@
 # http://dominoes:8080 with WebSockets enabled. Steps: docs/ONLINE.md.
 services:
   dominoes:
-    image: ghcr.io/dwzg/domino-server:latest
+    image: ghcr.io/dwzg/dominoes-server:latest
     container_name: dominoes
     restart: unless-stopped
     environment:

@@ -91,7 +91,7 @@ jobs:
             **Install:** download `dominoes-${{ steps.version.outputs.version }}.apk` below and open it on your phone.
             It installs over earlier releases; your games and stats are kept.
 
-            **Server:** `ghcr.io/${{ github.repository_owner }}/domino-server:${{ steps.version.outputs.version }}`
+            **Server:** `ghcr.io/${{ github.repository_owner }}/dominoes-server:${{ steps.version.outputs.version }}`
             (in Portainer: update the stack with "Re-pull image", or let the webhook do it).
 
   server:

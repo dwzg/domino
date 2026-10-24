@@ -66,11 +66,11 @@ You need JDK 17 or newer and the Android SDK (API 35).
 ./gradlew :app:assembleRelease      # app/build/outputs/apk/release/app-release.apk
 ```
 
-To run the game server locally, use `./gradlew :server:run`. To host it with Portainer, see [docs/ONLINE.md](docs/ONLINE.md) and `deploy/portainer/docker-compose.yml`. The server image is published to `ghcr.io/dwzg/domino-server`. App and server stay compatible across versions (see "Compatibility" in the same doc).
+To run the game server locally, use `./gradlew :server:run`. To host it with Portainer, see [docs/ONLINE.md](docs/ONLINE.md) and `deploy/portainer/docker-compose.yml`. The server image is published to `ghcr.io/dwzg/dominoes-server`. App and server stay compatible across versions (see "Compatibility" in the same doc).
 
 ## Releases
 
-Download the app from the repository's **Releases** page. Each release comes with an APK signed with the permanent release key, so it installs over the previous one, and with a matching server image (`ghcr.io/dwzg/domino-server:<version>`).
+Download the app from the repository's **Releases** page. Each release comes with an APK signed with the permanent release key, so it installs over the previous one, and with a matching server image (`ghcr.io/dwzg/dominoes-server:<version>`).
 
 To publish a release, go to **Actions → Release → Run workflow** and enter a version such as `2.1.0`. The one-time setup is in [docs/RELEASING.md](docs/RELEASING.md).
 
