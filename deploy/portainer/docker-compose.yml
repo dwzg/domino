@@ -12,10 +12,6 @@ services:
       DATABASE: /data/domino.db
     volumes:
       - dominoes-data:/data
-    # Reachable on the VPS at port 8080. If your proxy runs in Docker on the same
-    # network, you can remove this and forward to http://dominoes:8080 instead.
-    ports:
-      - "8080:8080"
 
 volumes:
   dominoes-data:
