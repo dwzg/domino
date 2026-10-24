@@ -15,3 +15,7 @@ services:
 
 volumes:
   dominoes-data:
+networks:
+  default:
+    external:
+      name: nginx-proxy-network
