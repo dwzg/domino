@@ -1,0 +1,37 @@
+# Portainer stack: the dominoes game server plus Caddy, which gets a free HTTPS
+# certificate from Let's Encrypt for your domain and forwards to the server
+# (WebSockets included).
+#
+# Needs: a domain (e.g. dominoes.example.com) pointing at your VPS, and ports 80 and
+# 443 free. Set DOMAIN under "Environment variables" when you deploy the stack.
+# Steps: docs/ONLINE.md → "Your own server with Portainer".
+services:
+  dominoes:
+    image: ghcr.io/dwzg/domino-server:latest
+    container_name: dominoes
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATABASE: /data/domino.db
+    volumes:
+      - dominoes-data:/data
+
+  caddy:
+    image: caddy:2
+    container_name: dominoes-caddy
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${DOMAIN} --to dominoes:8080
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - dominoes
+
+volumes:
+  dominoes-data:
+  caddy-data:
+  caddy-config:

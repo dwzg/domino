@@ -7,7 +7,73 @@ Games are stored in a SQLite file.
 You host it once; then everyone using the app enters its address
 (**More → Settings → Online server**, or the prompt on **Play → Play with friends**).
 
-## Option A: Fly.io (recommended)
+## Your own server with Portainer
+
+This runs the server as a Docker container on your VPS. You need:
+- A domain or subdomain pointing at the VPS, e.g. `dominoes.example.com` (an `A` record with the VPS's IP).
+- HTTPS. The app refuses plain `http://` servers on the internet. Either use your existing reverse proxy or the bundled Caddy (step 3).
+
+### 1. Get the image
+
+Each push to `main` makes GitHub Actions build the server and publish it as
+`ghcr.io/dwzg/domino-server:latest`, for both normal (amd64) and ARM VPSs. The first
+image appears once this PR is merged; see **Actions → Server image** for progress.
+
+GitHub packages from a private repository are private too, so Portainer needs to log in:
+
+1. On GitHub, open **Settings → Developer settings → Personal access tokens → Tokens (classic)**.
+2. Create a token with only the `read:packages` scope.
+3. In Portainer, open **Registries → Add registry → Custom registry**:
+   - URL: `ghcr.io`
+   - Username: your GitHub username
+   - Password: the token
+
+Alternatively, make the package public: GitHub → your profile → **Packages → domino-server → Package settings → Change visibility**.
+
+### 2. Create the stack
+
+In Portainer: **Stacks → Add stack**, name it `dominoes`, choose **Web editor** and paste one of these:
+
+- **You already run a reverse proxy** (Nginx Proxy Manager, Traefik, …):
+  paste [`deploy/portainer/docker-compose.yml`](../deploy/portainer/docker-compose.yml).
+- **You don't**: paste [`deploy/portainer/docker-compose.with-caddy.yml`](../deploy/portainer/docker-compose.with-caddy.yml).
+  Under **Environment variables**, add `DOMAIN` = `dominoes.example.com`. Ports 80 and 443 must be free.
+
+Click **Deploy the stack**.
+
+### 3. HTTPS
+
+- **With the Caddy stack**, nothing to do: Caddy fetches a Let's Encrypt certificate on first start (give it a minute).
+- **Nginx Proxy Manager:** add a Proxy Host for your domain:
+  - Forward to: the VPS's IP (or `dominoes` if NPM shares a Docker network with the stack), port `8080`
+  - Turn on **Websockets Support** (needed for live games)
+  - On the SSL tab, request a certificate and turn on **Force SSL**
+- **Traefik or others:** route your domain to the container's port 8080 with WebSockets allowed.
+
+### 4. Check it and connect
+
+1. Open `https://dominoes.example.com/health` in a browser. It should say `ok`.
+2. In the app: **More → Settings → Online server** → `dominoes.example.com`.
+3. Your friends do the same, then you can invite them with a code.
+
+To build an APK with the server already filled in:
+```sh
+./gradlew :app:assembleRelease -PdominoServerUrl=https://dominoes.example.com
+```
+
+### Updating and backups
+
+- **Update:** after new code reaches `main`, open the stack in Portainer and choose **Update the stack** with **Re-pull image** switched on. Games in progress are kept.
+- **Backup:** everything is in the `dominoes_dominoes-data` volume (`domino.db`). Stop the stack briefly and copy it, for example:
+  ```sh
+  docker run --rm -v dominoes_dominoes-data:/data -v "$PWD":/backup alpine tar czf /backup/dominoes-backup.tgz -C /data .
+  ```
+- **Logs:** Portainer → Containers → `dominoes` → Logs.
+
+Without GitHub's registry, Portainer can also build the image itself: **Add stack → Repository**,
+pointing at this repo, using the root `Dockerfile`. Building needs about 2 GB of memory and a few minutes.
+
+## Alternative: Fly.io
 
 Fly.io runs the server close to you and keeps the database on a persistent volume.
 A tiny always-sleeping machine like this one usually fits in their free allowance.
@@ -43,7 +109,7 @@ Check fly.io/pricing for the current terms.
 To update the server later, pull the latest code and run `fly deploy` again.
 Running games survive deploys because they're on the volume.
 
-## Option B: Docker anywhere
+## Alternative: any other Docker host
 
 Any host that runs a container and gives it a persistent disk works:
 

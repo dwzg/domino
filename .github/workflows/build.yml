@@ -33,10 +33,3 @@ jobs:
           name: domino-apk
           path: app/build/outputs/apk/release/app-release.apk
 
-  server-image:
-    # Checks that the game server's Docker image builds (no Android SDK needed).
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build server image
-        run: docker build -t dominoes-server .
