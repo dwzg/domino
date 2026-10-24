@@ -51,6 +51,7 @@ fun OnlineGameState.toTable(): TableUi? {
         canDraw = yourTurn && v.canDraw,
         mustPass = yourTurn && v.mustPass,
         yourScore = if (showLast) last!!.scores[you] else v.seats[you].score,
+        target = v.rules.target,
         opponents = order.map { i ->
             val s = v.seats[i]
             SeatUi(

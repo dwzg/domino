@@ -36,6 +36,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -123,6 +124,7 @@ fun GameScreen(
                             hint()
                             topActions()
                         }
+                        Scoreboard(table, Modifier.padding(bottom = 4.dp))
                         Opponents(table, compact = short)
                         // Short screens get a two-line message box; tap it for the full text.
                         Column(
@@ -156,6 +158,7 @@ fun GameScreen(
                         hint()
                         topActions()
                     }
+                    Scoreboard(table, Modifier.padding(horizontal = 6.dp))
                     felt(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp))
                     Column(Modifier.padding(horizontal = 12.dp)) {
                         Messages(table, compact = true)
@@ -168,7 +171,65 @@ fun GameScreen(
     }
 }
 
-/** Each opponent with their score and tiles left; whoever is to move is highlighted. */
+/**
+ * Everyone's score side by side, you first, with a bar towards the target so you can
+ * see at a glance who's ahead and by how much. The leader's score is highlighted.
+ */
+@Composable
+private fun Scoreboard(table: TableUi, modifier: Modifier = Modifier) {
+    val scores = listOf("You" to table.yourScore) + table.opponents.map { it.name to it.score }
+    val best = scores.maxOf { it.second }
+    // Only one leader gets highlighted; a tie (or 0-0) highlights nobody.
+    val leader = scores.indices.singleOrNull { scores[it].second == best }?.takeIf { best > 0 }
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = MaterialTheme.shapes.small,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            scores.forEachIndexed { i, (name, score) ->
+                val leading = leader == i
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            name,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (i == 0) FontWeight.Bold else FontWeight.Normal,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false).padding(bottom = 3.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "$score",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = if (leading) MaterialTheme.colorScheme.primary else Color.Unspecified,
+                            maxLines = 1,
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { (score.toFloat() / table.target).coerceIn(0f, 1f) },
+                        color = if (leading) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 2.dp),
+                    )
+                }
+            }
+            Text(
+                "to ${table.target}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** Each opponent with their tiles left; whoever is to move is highlighted. */
 @Composable
 private fun Opponents(table: TableUi, compact: Boolean = false, modifier: Modifier = Modifier.fillMaxWidth()) {
     Row(
@@ -193,7 +254,6 @@ private fun Opponents(table: TableUi, compact: Boolean = false, modifier: Modifi
                             modifier = Modifier.weight(1f),
                         )
                         if (seat.thinking) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
-                        Text(" ${seat.score}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -376,7 +436,7 @@ private fun MessageLine(
     }
 }
 
-/** Your score, what to do now, and Draw or Pass when that's the only option. */
+/** What to do now, and Draw or Pass when that's the only option. */
 @Composable
 private fun StatusRow(table: TableUi, actions: GameActions, compact: Boolean = false) {
     Row(
@@ -386,18 +446,6 @@ private fun StatusRow(table: TableUi, actions: GameActions, compact: Boolean = f
             .padding(top = if (compact) 0.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(
-            color = if (table.yourTurn) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.small,
-        ) {
-            Text(
-                "You ${table.yourScore}",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            )
-        }
-        Spacer(Modifier.width(10.dp))
         Text(table.status, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         if (table.yourTurn && table.canDraw) Button(onClick = actions::draw) { Text("Draw") }
         if (table.yourTurn && table.mustPass) Button(onClick = actions::pass) { Text("Pass") }

@@ -45,6 +45,8 @@ data class TableUi(
     val canDraw: Boolean,
     val mustPass: Boolean,
     val yourScore: Int,
+    /** The score that wins the match. */
+    val target: Int,
     /** Everyone else in turn order after you. */
     val opponents: List<SeatUi>,
     /** Tiles left to draw; null in Block, where there's no drawing. */

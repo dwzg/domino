@@ -25,6 +25,7 @@ fun GameUiState.toTable(): TableUi? {
         canDraw = yourTurn && r.canDraw,
         mustPass = yourTurn && r.mustPass,
         yourScore = scores[YOU],
+        target = m.rules.target,
         opponents = (1 until r.players).map { p ->
             SeatUi(
                 name = SEAT_NAMES[p],
