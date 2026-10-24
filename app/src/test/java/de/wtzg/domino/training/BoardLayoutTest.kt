@@ -32,7 +32,7 @@ class BoardLayoutTest {
     @Test
     fun tilesNeverOverlapAndNeighboursTouch() {
         val rnd = Random(11)
-        repeat(500) {
+        for (width in listOf(4f, 5f, 7f)) repeat(300) {
             var r = Round.deal(rnd)
             while (!r.isOver) {
                 r = when {
@@ -40,7 +40,7 @@ class BoardLayoutTest {
                     r.mustPass -> r.pass()
                     else -> r.play(r.legalMoves().random(rnd))
                 }
-                val laid = BoardLayout.layout(r.board)
+                val laid = BoardLayout.layout(r.board, width)
                 assertEquals(r.board.line.size, laid.size)
                 for (i in laid.indices) for (j in i + 1 until laid.size) {
                     if (overlap(laid[i], laid[j]) > 0.001f) fail("Overlap ${laid[i]} / ${laid[j]} on ${r.board}")

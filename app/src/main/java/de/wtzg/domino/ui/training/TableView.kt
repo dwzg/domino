@@ -71,9 +71,11 @@ fun TableView(
     targets: List<TableTarget>,
     onTarget: (Move) -> Unit,
     modifier: Modifier = Modifier,
+    /** Row width in half-tiles; narrower rows suit tall (portrait) tables. */
+    halfWidth: Float = BoardLayout.HALF_WIDTH,
 ) {
-    val laid = remember(board) { BoardLayout.layout(board) }
-    val slots = remember(board, targets) { targets.map { it to BoardLayout.slot(board, it.move) } }
+    val laid = remember(board, halfWidth) { BoardLayout.layout(board, halfWidth) }
+    val slots = remember(board, targets, halfWidth) { targets.map { it to BoardLayout.slot(board, it.move, halfWidth) } }
     val shape = RoundedCornerShape(16.dp)
 
     BoxWithConstraints(

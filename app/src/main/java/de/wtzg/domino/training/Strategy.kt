@@ -83,7 +83,7 @@ object Strategy {
             )
             lacking.isNotEmpty() -> f += Factor(
                 2.5 * urgency,
-                "It opens a ${lacking.first()}, a number your opponent has shown it doesn't have.",
+                "Afterwards one end shows ${lacking.first()}, and your opponent has shown it has no ${lacking.first()}s.",
             )
         }
 
@@ -119,9 +119,12 @@ object Strategy {
         }
     }
 
+    /** Names a move by the number it is played on, since the line snakes and "left" can sit anywhere. */
     fun describe(move: Move, board: Board): String {
         if (board.isEmpty) return "${move.tile}"
-        val side = if (move.end == End.LEFT) "left" else "right"
-        return "${move.tile} on the $side"
+        val l = board.leftEnd!!
+        val r = board.rightEnd!!
+        val n = if (move.end == End.LEFT) l else r
+        return if (l == r) "${move.tile} on a $n end" else "${move.tile} on the $n end"
     }
 }
