@@ -2,14 +2,19 @@ name: Release
 
 # Publishes a version: runs every test, builds the APK signed with the release key,
 # creates the GitHub Release "vX.Y.Z" with the APK attached, and publishes the
-# server image tagged X.Y.Z. Start it from Actions → Release → Run workflow.
-# One-time setup (signing secrets): docs/RELEASING.md.
+# server image tagged X.Y.Z, then redeploys the server through the Portainer webhook
+# if one is set up. Start it from Actions → Release → Run workflow.
+# One-time setup (signing secrets, webhook): docs/RELEASING.md.
 on:
   workflow_dispatch:
     inputs:
       version:
         description: Version to release, e.g. 2.1.0
         required: true
+      deploy:
+        description: Update the server through the Portainer webhook
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -87,7 +92,7 @@ jobs:
             It installs over earlier releases; your games and stats are kept.
 
             **Server:** `ghcr.io/${{ github.repository_owner }}/domino-server:${{ steps.version.outputs.version }}`
-            (in Portainer: update the stack with "Re-pull image").
+            (in Portainer: update the stack with "Re-pull image", or let the webhook do it).
 
   server:
     needs: app
@@ -95,3 +100,44 @@ jobs:
     with:
       version: ${{ needs.app.outputs.version }}
     secrets: inherit
+
+  deploy:
+    needs: [app, server]
+    if: inputs.deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: gradle.properties
+          sparse-checkout-cone-mode: false
+
+      - name: Redeploy the server
+        id: webhook
+        env:
+          WEBHOOK: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK" ]; then
+            echo "::notice::No PORTAINER_WEBHOOK_URL secret, so the server wasn't updated (see docs/RELEASING.md)"
+            echo "called=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          code=$(curl -sS -o response.txt -w '%{http_code}' -X POST --max-time 300 "$WEBHOOK") || code=000
+          if [ "${code:0:1}" != 2 ]; then
+            echo "::error::The Portainer webhook answered $code: $(head -c 500 response.txt 2>/dev/null)"; exit 1
+          fi
+          echo "called=true" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the new version
+        if: steps.webhook.outputs.called == 'true'
+        env:
+          VERSION: ${{ needs.app.outputs.version }}
+        run: |
+          SERVER=$(grep -E '^dominoServerUrl=' gradle.properties | cut -d= -f2-)
+          for i in $(seq 1 30); do
+            info=$(curl -fsS --max-time 10 "$SERVER/version" 2>/dev/null || true)
+            if echo "$info" | grep -q "\"version\":\"$VERSION\""; then
+              echo "$SERVER is running $VERSION: $info"; exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SERVER doesn't report version $VERSION after 5 minutes (last answer: ${info:-none}). Check the stack in Portainer."
+          exit 1
