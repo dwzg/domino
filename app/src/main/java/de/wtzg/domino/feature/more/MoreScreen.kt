@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -248,6 +249,8 @@ private fun FeltSwatch(felt: Felt, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier
             .size(44.dp)
+            // Clip so the press ripple is round like the swatch, not square.
+            .clip(CircleShape)
             .background(Brush.radialGradient(listOf(c.center, c.edge)), CircleShape)
             .border(if (selected) 3.dp else 1.dp, if (selected) MaterialTheme.colorScheme.primary else Color.Gray, CircleShape)
             .clickable(role = Role.RadioButton, onClick = onClick)
