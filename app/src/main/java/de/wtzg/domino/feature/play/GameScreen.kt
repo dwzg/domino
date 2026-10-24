@@ -64,9 +64,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import de.wtzg.domino.engine.Match
-import de.wtzg.domino.engine.Move
-import de.wtzg.domino.engine.Round
 import de.wtzg.domino.engine.Strategy
 import de.wtzg.domino.engine.Tile
 import de.wtzg.domino.ui.components.DominoTile
@@ -81,20 +78,23 @@ private const val LANDSCAPE_ROW = 7f
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameScreen(
-    state: GameUiState,
+    table: TableUi,
     actions: GameActions,
     haptics: Boolean,
     onBack: () -> Unit,
-    onChangeGame: () -> Unit,
+    /** The overlay's second button (e.g. "Change game"). */
+    onOverlaySecondary: () -> Unit = {},
+    /** Extra items for the top bar, e.g. a menu. */
+    topActions: @Composable () -> Unit = {},
 ) {
-    val match = state.match ?: return
-    val round = match.round
-    val legal = if (state.yourTurn) round.legalMoves() else emptyList()
-    val title = "${match.rules.mode.title} · to ${match.rules.target}"
-
     val haptic = LocalHapticFeedback.current
-    LaunchedEffect(state.badge?.id) {
-        if (haptics && state.badge != null) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    LaunchedEffect(table.badge?.id) {
+        if (haptics && table.badge != null) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+    val hint = @Composable {
+        if (table.showHint) {
+            TextButton(onClick = actions::showHint, enabled = table.yourTurn && table.legal.size > 1) { Text("Hint") }
+        }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -105,19 +105,20 @@ fun GameScreen(
             topBar = {
                 if (!landscape) {
                     TopAppBar(
-                        title = { Text(title) },
+                        title = { Text(table.title) },
                         navigationIcon = {
                             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                         },
                         actions = {
-                            TextButton(onClick = actions::showHint, enabled = state.yourTurn && legal.size > 1) { Text("Hint") }
+                            hint()
+                            topActions()
                         },
                     )
                 }
             },
         ) { padding ->
-            val table = @Composable { m: Modifier ->
-                Table(state, match, legal, actions, onChangeGame, if (landscape) LANDSCAPE_ROW else PORTRAIT_ROW, m)
+            val felt = @Composable { m: Modifier ->
+                Table(table, actions, onOverlaySecondary, if (landscape) LANDSCAPE_ROW else PORTRAIT_ROW, m)
             }
             if (landscape) {
                 Row(
@@ -127,14 +128,15 @@ fun GameScreen(
                         .padding(8.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    table(Modifier.weight(1.5f).fillMaxHeight())
+                    felt(Modifier.weight(1.5f).fillMaxHeight())
                     Column(Modifier.weight(1f).fillMaxHeight()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                            TextButton(onClick = actions::showHint, enabled = state.yourTurn && legal.size > 1) { Text("Hint") }
+                            Text(table.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                            hint()
+                            topActions()
                         }
-                        Opponents(state, match, compact = short)
+                        Opponents(table, compact = short)
                         // Short screens get a two-line message box; tap it for the full text.
                         Column(
                             Modifier
@@ -142,10 +144,10 @@ fun GameScreen(
                                 .fillMaxWidth()
                                 .padding(vertical = 6.dp),
                         ) {
-                            Messages(state, round, compact = short)
+                            Messages(table, compact = short)
                         }
-                        StatusRow(state, match, actions, compact = short)
-                        Hand(state, round, legal, actions, compact = short)
+                        StatusRow(table, actions, compact = short)
+                        Hand(table, actions, compact = short)
                     }
                 }
             } else {
@@ -155,11 +157,11 @@ fun GameScreen(
                         .padding(padding)
                         .padding(horizontal = 12.dp),
                 ) {
-                    Opponents(state, match)
-                    table(Modifier.weight(1f).fillMaxWidth().padding(vertical = 6.dp))
-                    Messages(state, round)
-                    StatusRow(state, match, actions)
-                    Hand(state, round, legal, actions)
+                    Opponents(table)
+                    felt(Modifier.weight(1f).fillMaxWidth().padding(vertical = 6.dp))
+                    Messages(table)
+                    StatusRow(table, actions)
+                    Hand(table, actions)
                 }
             }
         }
@@ -168,9 +170,7 @@ fun GameScreen(
 
 /** Each opponent with their score and tiles left; whoever is to move is highlighted. */
 @Composable
-private fun Opponents(state: GameUiState, match: Match, compact: Boolean = false) {
-    val round = match.round
-    val scores = match.scores
+private fun Opponents(table: TableUi, compact: Boolean = false) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -178,82 +178,72 @@ private fun Opponents(state: GameUiState, match: Match, compact: Boolean = false
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        for (p in 1 until round.players) {
-            val active = round.turn == p && !round.isOver
+        table.opponents.forEach { seat ->
             Surface(
-                color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = if (seat.active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier.weight(1f),
             ) {
                 Column(Modifier.padding(horizontal = 8.dp, vertical = if (compact) 3.dp else 6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            SEAT_NAMES[p],
+                            seat.name,
                             style = MaterialTheme.typography.labelLarge,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
+                            color = if (seat.away) MaterialTheme.colorScheme.onSurfaceVariant else Color.Unspecified,
                             modifier = Modifier.weight(1f),
                         )
-                        if (active && state.aiThinking) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
-                        Text(" ${scores[p]}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        if (seat.thinking) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
+                        Text(" ${seat.score}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 3.dp)) {
-                        val hand = round.hands[p]
-                        val shown = if (round.isOver) hand else null
-                        val max = if (round.players > 2) 5 else 9
-                        hand.take(max).forEachIndexed { i, _ ->
-                            val t = shown?.get(i)
+                        val max = if (table.opponents.size > 1) 5 else 9
+                        repeat(minOf(seat.tiles, max)) { i ->
+                            val t = seat.revealed?.getOrNull(i)
                             DominoTile(t?.a ?: 0, t?.b ?: 0, half = 8.dp, faceDown = t == null)
                         }
-                        if (hand.size > max) Text("+${hand.size - max}", style = MaterialTheme.typography.labelSmall)
+                        if (seat.tiles > max) Text("+${seat.tiles - max}", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
         }
-        if (match.rules.mode.drawsFromBoneyard) {
+        table.boneyard?.let { n ->
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(start = 4.dp)) {
                 DominoTile(0, 0, half = 9.dp, faceDown = true)
-                Text("${round.boneyard.size}", style = MaterialTheme.typography.labelMedium)
+                Text("$n", style = MaterialTheme.typography.labelMedium)
             }
         }
     }
 }
 
 @Composable
-private fun Table(
-    state: GameUiState,
-    match: Match,
-    legal: List<Move>,
-    actions: GameActions,
-    onChangeGame: () -> Unit,
-    rowWidth: Float,
-    modifier: Modifier,
-) {
+private fun Table(table: TableUi, actions: GameActions, onSecondary: () -> Unit, rowWidth: Float, modifier: Modifier) {
     val targets = when {
-        !state.yourTurn -> emptyList()
-        state.selected != null -> legal.filter { it.tile == state.selected }.map { TableTarget(it, isHint = false) }
-        state.hint != null -> listOf(TableTarget(state.hint.move, isHint = true))
+        !table.yourTurn -> emptyList()
+        table.selected != null -> table.legal.filter { it.tile == table.selected }.map { TableTarget(it, isHint = false) }
+        table.hint != null -> listOf(TableTarget(table.hint.move, isHint = true))
         else -> emptyList()
     }
     Box(modifier) {
         TableView(
-            board = match.round.board,
-            lastPlaced = state.lastPlaced,
-            lastPlacedByOpponent = state.lastPlacedByOpponent,
+            board = table.board,
+            lastPlaced = table.lastPlaced,
+            lastPlacedByOpponent = table.lastPlacedByOpponent,
             targets = targets,
             onTarget = actions::playMove,
-            badge = state.badge,
+            badge = table.badge,
             halfWidth = rowWidth,
             modifier = Modifier.fillMaxSize(),
         )
-        if (match.isOver || match.round.isOver) {
+        table.overlay?.let { o ->
             Box(
                 Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.3f), MaterialTheme.shapes.medium),
                 contentAlignment = Alignment.Center,
             ) {
-                if (match.isOver) MatchOver(match, actions, onChangeGame) else HandOver(state, match, actions)
+                Overlay(o, actions::overlayPrimary, onSecondary)
             }
         }
     }
@@ -264,16 +254,16 @@ private fun Table(
  * others just did. Long texts are cut short; tap the box to read them in full.
  */
 @Composable
-private fun Messages(state: GameUiState, round: Round, compact: Boolean = false) {
-    val hint = state.hint
+private fun Messages(table: TableUi, compact: Boolean = false) {
+    val hint = table.hint
     val coach: CoachNote? = when {
         hint != null -> CoachNote(
-            NoteKind.GOOD, "Play ${Strategy.describe(hint.move, round.board)}.",
+            NoteKind.GOOD, "Play ${Strategy.describe(hint.move, table.board)}.",
             hint.pros.take(2).joinToString(" ").ifEmpty { "Any reasonable move works here." } + " Tap the yellow spot to play it.",
         )
-        else -> state.coach
+        else -> table.coach
     }
-    val others = state.aiLog.joinToString(" ").ifEmpty { null }
+    val others = table.log.joinToString(" ").ifEmpty { null }
     if (coach == null && others == null) return
 
     var showAll by remember { mutableStateOf(false) }
@@ -313,9 +303,9 @@ private fun Messages(state: GameUiState, round: Round, compact: Boolean = false)
                         Text(it.title, fontWeight = FontWeight.Bold)
                         Text(it.text)
                     }
-                    if (state.aiLog.isNotEmpty()) {
+                    if (table.log.isNotEmpty()) {
                         Text("At the table", fontWeight = FontWeight.Bold)
-                        state.aiLog.forEach { Text(it) }
+                        table.log.forEach { Text(it) }
                     }
                 }
             },
@@ -371,16 +361,7 @@ private fun MessageLine(
 
 /** Your score, what to do now, and Draw or Pass when that's the only option. */
 @Composable
-private fun StatusRow(state: GameUiState, match: Match, actions: GameActions, compact: Boolean = false) {
-    val round = match.round
-    val status = when {
-        match.isOver || round.isOver -> ""
-        state.aiThinking || round.turn != YOU -> "${SEAT_NAMES[round.turn]} is thinking…"
-        state.selected != null -> "${state.selected} fits more than one end. Tap a glowing spot."
-        round.canDraw -> "Nothing fits ${round.board.openValues.distinct().joinToString(" or ")}. Draw a tile."
-        round.mustPass -> "Nothing fits. You have to pass."
-        else -> "Your turn. Tap a tile."
-    }
+private fun StatusRow(table: TableUi, actions: GameActions, compact: Boolean = false) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -389,28 +370,28 @@ private fun StatusRow(state: GameUiState, match: Match, actions: GameActions, co
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
-            color = if (round.turn == YOU && !round.isOver) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+            color = if (table.yourTurn) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.small,
         ) {
             Text(
-                "You ${match.scores[YOU]}",
+                "You ${table.yourScore}",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             )
         }
         Spacer(Modifier.width(10.dp))
-        Text(status, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-        if (state.yourTurn && round.canDraw) Button(onClick = actions::draw) { Text("Draw") }
-        if (state.yourTurn && round.mustPass) Button(onClick = actions::pass) { Text("Pass") }
+        Text(table.status, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        if (table.yourTurn && table.canDraw) Button(onClick = actions::draw) { Text("Draw") }
+        if (table.yourTurn && table.mustPass) Button(onClick = actions::pass) { Text("Pass") }
     }
 }
 
 /** Your tiles in one row; they shrink a little when you hold many, and only wrap as a last resort. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Hand(state: GameUiState, round: Round, legal: List<Move>, actions: GameActions, compact: Boolean = false) {
-    val hand = round.hands[YOU]
+private fun Hand(table: TableUi, actions: GameActions, compact: Boolean = false) {
+    val hand = table.hand
     val gap = if (hand.size > 9) 4.dp else 6.dp
     BoxWithConstraints(
         Modifier
@@ -431,9 +412,9 @@ private fun Hand(state: GameUiState, round: Round, legal: List<Move>, actions: G
                         tile = t,
                         index = i,
                         half = half,
-                        selected = t == state.selected,
-                        hinted = t == state.hint?.move?.tile,
-                        dimmed = state.yourTurn && legal.none { it.tile == t },
+                        selected = t == table.selected,
+                        hinted = t == table.hint?.move?.tile,
+                        dimmed = table.yourTurn && table.legal.none { it.tile == t },
                         onClick = { actions.tapTile(t) },
                     )
                 }
@@ -469,8 +450,9 @@ private fun HandTile(tile: Tile, index: Int, half: Dp, selected: Boolean, hinted
     )
 }
 
+/** End of a hand or of the match, on top of the table. */
 @Composable
-private fun OverlayCard(content: @Composable () -> Unit) {
+private fun Overlay(o: OverlayUi, onPrimary: () -> Unit, onSecondary: () -> Unit) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
@@ -483,65 +465,20 @@ private fun OverlayCard(content: @Composable () -> Unit) {
                 .padding(18.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) { content() }
-    }
-}
-
-@Composable
-private fun ScoreLines(match: Match, pips: List<Int>?) {
-    val scores = match.scores
-    scores.indices.forEach { p ->
-        Row(Modifier.fillMaxWidth()) {
-            Text(SEAT_NAMES[p], modifier = Modifier.weight(1f), fontWeight = if (p == YOU) FontWeight.Bold else FontWeight.Normal)
-            pips?.let { Text("${it[p]} pips  ·  ", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            Text("${scores[p]}", fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-/** End-of-hand summary, shown on top of the table. */
-@Composable
-private fun HandOver(state: GameUiState, match: Match, actions: GameActions) {
-    val res = match.round.result ?: return
-    val winner = res.winner
-    val title = when (winner) {
-        null -> "Blocked. Nobody scores."
-        YOU -> if (res.blocked) "Blocked. You win the hand!" else "Domino! You win the hand."
-        else -> "${SEAT_NAMES[winner]} ${if (res.blocked) "wins the blocked hand." else "went out."}"
-    }
-    OverlayCard {
-        Text(title, style = MaterialTheme.typography.titleLarge)
-        if (winner != null) {
-            val who = if (winner == YOU) "You score" else "${SEAT_NAMES[winner]} scores"
-            val rounded = if (match.rules.mode.scoresDuringPlay) " (rounded to the nearest ${match.rules.mode.scoringMultiple})" else ""
-            Text("$who ${res.endPoints} for the pips left in the other hands$rounded.")
-        }
-        ScoreLines(match, res.pipsLeft)
-        if (state.handRated > 0) {
-            Text(
-                "You matched the coach on ${state.handMatched} of ${state.handRated} moves.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        Button(onClick = actions::nextHand, modifier = Modifier.padding(top = 4.dp)) { Text("Next hand") }
-    }
-}
-
-@Composable
-private fun MatchOver(match: Match, actions: GameActions, onChangeGame: () -> Unit) {
-    val w = match.winner ?: return
-    OverlayCard {
-        Text(
-            if (w == YOU) "You win the match!" else "${SEAT_NAMES[w]} wins the match.",
-            style = MaterialTheme.typography.headlineSmall,
-        )
-        if (!match.round.isOver) {
-            Text("The last play took ${if (w == YOU) "you" else SEAT_NAMES[w]} past ${match.rules.target}.")
-        }
-        ScoreLines(match, null)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
-            OutlinedButton(onClick = onChangeGame) { Text("Change game") }
-            Button(onClick = actions::rematch) { Text("Rematch") }
+        ) {
+            Text(o.title, style = MaterialTheme.typography.titleLarge)
+            o.lines.forEach { Text(it) }
+            o.scores.forEach { l ->
+                Row(Modifier.fillMaxWidth()) {
+                    Text(l.name, modifier = Modifier.weight(1f), fontWeight = if (l.isYou) FontWeight.Bold else FontWeight.Normal)
+                    l.pips?.let { Text("$it pips  ·  ", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    Text("${l.score}", fontWeight = FontWeight.Bold)
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
+                o.secondary?.let { OutlinedButton(onClick = onSecondary) { Text(it) } }
+                o.primary?.let { Button(onClick = onPrimary) { Text(it) } }
+            }
         }
     }
 }

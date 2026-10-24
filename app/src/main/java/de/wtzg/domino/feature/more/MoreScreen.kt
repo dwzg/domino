@@ -25,6 +25,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -188,7 +189,37 @@ private fun SettingsSection(s: Settings, update: ((Settings) -> Settings) -> Uni
                 update { it.copy(coach = v) }
             }
             SwitchSetting("Vibration", "A short buzz when points are scored", s.haptics) { v -> update { it.copy(haptics = v) } }
+            ServerSetting(s.serverUrl) { url -> update { it.copy(serverUrl = url.trim()) } }
         }
+    }
+}
+
+/** The online game server. Empty uses the one built into the app, if any. */
+@Composable
+private fun ServerSetting(current: String, onSave: (String) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    val shown = current.ifBlank { BuildConfig.SERVER_URL.ifBlank { "Not set" } }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Online server", style = MaterialTheme.typography.titleSmall)
+            Text(shown, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = { editing = true }) { Text("Change") }
+    }
+    if (editing) {
+        var value by remember { mutableStateOf(current) }
+        AlertDialog(
+            onDismissRequest = { editing = false },
+            title = { Text("Online server") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("The address of the game server you and your friends use.", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedTextField(value = value, onValueChange = { value = it }, singleLine = true, placeholder = { Text("my-dominoes.fly.dev") })
+                }
+            },
+            confirmButton = { TextButton(onClick = { editing = false; onSave(value) }) { Text("Save") } },
+            dismissButton = { TextButton(onClick = { editing = false }) { Text("Cancel") } },
+        )
     }
 }
 

@@ -18,6 +18,11 @@ An Android app for playing, learning and keeping score in dominoes.
 - The table is laid out like a real one, with snaking lines, crosswise doubles and a spinner cross. It animates as tiles are played.
 - A match in progress is saved, so you can leave and resume it later.
 
+**Play with friends** online, live or turn by turn.
+- Invite friends with a code or a link, and fill empty seats with computer players.
+- In turn-by-turn games you get a notification when it's your move.
+- This needs a small game server that you host. See [docs/ONLINE.md](docs/ONLINE.md).
+
 **Learn**
 - 20 lessons across five sections: basics, strategy, scoring games, advanced play and Red Dead Redemption 2.
 - "Find the best move" puzzles, taken from real games between strong AIs.
@@ -36,6 +41,8 @@ An Android app for playing, learning and keeping score in dominoes.
 
 ```
 engine/   Pure Kotlin game logic, no Android: rules, scoring, AI and coach, puzzles, table layout.
+protocol/ Messages between app and server (shared, so they can't drift apart).
+server/   Ktor game server for online play: SQLite storage, WebSockets, computer seats.
 app/      Jetpack Compose UI.
   data/        DataStore repositories (settings, stats, saved game, score keeper)
   feature/     play, learn, scorekeeper and more screens with their ViewModels
@@ -53,10 +60,13 @@ You need JDK 17 or newer and the Android SDK (API 35).
 
 ```sh
 ./gradlew :engine:test              # rules, scoring, AI, layout, puzzles
-./gradlew :app:testDebugUnitTest    # ViewModels, lessons, migrations, UI tests (Robolectric)
+./gradlew :server:test              # online API, hidden hands, live updates, storage
+./gradlew :app:testDebugUnitTest    # ViewModels, lessons, migrations, UI tests, online end-to-end
 ./gradlew :app:lintDebug
 ./gradlew :app:assembleRelease      # app/build/outputs/apk/release/app-release.apk
 ```
+
+To run the game server locally, use `./gradlew :server:run`. Deployment steps are in [docs/ONLINE.md](docs/ONLINE.md).
 
 Every push builds the APK on GitHub Actions. Download it as the `domino-apk` artifact from the **Build APK** run.
 

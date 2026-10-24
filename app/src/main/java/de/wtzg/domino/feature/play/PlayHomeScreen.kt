@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,6 +44,7 @@ fun PlayHomeScreen(
     onContinue: () -> Unit,
     onPickMode: (GameMode) -> Unit,
     onLearn: () -> Unit,
+    onOnline: () -> Unit,
 ) {
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
@@ -58,6 +60,25 @@ fun PlayHomeScreen(
         ) {
             if (saved != null && !saved.match.isOver) {
                 item { ContinueCard(saved, onContinue) }
+            }
+            item {
+                Card(
+                    onClick = onOnline,
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    ),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Groups, contentDescription = null)
+                        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                            Text("Play with friends", style = MaterialTheme.typography.titleMedium)
+                            Text("Online, live or turn by turn. Invite with a code.", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null)
+                    }
+                }
             }
             item { SectionHeader("Play against the computer") }
             items(GameMode.entries) { mode -> ModeCard(mode) { onPickMode(mode) } }

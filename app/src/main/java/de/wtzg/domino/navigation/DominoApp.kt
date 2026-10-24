@@ -19,7 +19,9 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import android.content.Intent
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -33,7 +35,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
+import kotlinx.coroutines.flow.Flow
+import de.wtzg.domino.feature.online.OnlineCreateScreen
+import de.wtzg.domino.feature.online.OnlineGameScreen
+import de.wtzg.domino.feature.online.OnlineGameViewModel
+import de.wtzg.domino.feature.online.OnlineHomeScreen
+import de.wtzg.domino.feature.online.OnlineHomeViewModel
 import de.wtzg.domino.AppViewModel
 import de.wtzg.domino.data.Settings
 import de.wtzg.domino.engine.GameMode
@@ -46,6 +55,7 @@ import de.wtzg.domino.feature.play.GameScreen
 import de.wtzg.domino.feature.play.GameSetupScreen
 import de.wtzg.domino.feature.play.GameViewModel
 import de.wtzg.domino.feature.play.PlayHomeScreen
+import de.wtzg.domino.feature.play.toTable
 import de.wtzg.domino.feature.scorekeeper.ScoreGameScreen
 import de.wtzg.domino.feature.scorekeeper.ScoreHistoryScreen
 import de.wtzg.domino.feature.scorekeeper.ScoreKeeperViewModel
@@ -60,8 +70,10 @@ private enum class Tab(val label: String, val icon: ImageVector, val route: Any,
 }
 
 @Composable
-fun DominoApp(appVm: AppViewModel, settings: Settings) {
+fun DominoApp(appVm: AppViewModel, settings: Settings, intents: Flow<Intent>) {
     val nav = rememberNavController()
+    // Links that arrive while the app is already open (invites, notifications).
+    LaunchedEffect(nav) { intents.collect { nav.handleDeepLink(it) } }
     // Shared across screens: the game in progress and the score keeper.
     val gameVm = appViewModel { GameViewModel(it.savedGame, it.stats, it.settings) }
     val scoresVm = appViewModel { ScoreKeeperViewModel(it.scoreKeeper) }
@@ -140,6 +152,7 @@ private fun AppNavHost(
                 onContinue = { nav.navigate(GameRoute) },
                 onPickMode = { nav.navigate(SetupRoute(it.name)) },
                 onLearn = { nav.goToTab(Tab.LEARN) },
+                onOnline = { nav.navigate(OnlineRoute()) },
             )
         }
         composable<SetupRoute> { e ->
@@ -156,16 +169,17 @@ private fun AppNavHost(
             )
         }
         composable<GameRoute> {
-            if (game.game == null) {
+            val table = game.toTable()
+            if (table == null) {
                 // Nothing to show (e.g. the game was quit); go back to the start.
                 LaunchedEffect(Unit) { nav.popBackStack(PlayRoute, inclusive = false) }
             } else {
                 GameScreen(
-                    state = game,
+                    table = table,
                     actions = gameVm,
                     haptics = settings.haptics,
                     onBack = { nav.popBackStack() },
-                    onChangeGame = {
+                    onOverlaySecondary = {
                         gameVm.quit()
                         nav.popBackStack(PlayRoute, inclusive = false)
                     },
@@ -225,6 +239,29 @@ private fun AppNavHost(
                 onClear = { scoresVm.clearHistory() },
             )
         }
+        composable<OnlineRoute> { e ->
+            OnlineHome(nav, e.toRoute<OnlineRoute>().code)
+        }
+        composable<JoinRoute>(deepLinks = listOf(navDeepLink<JoinRoute>(basePath = "dominoes://join"))) { e ->
+            OnlineHome(nav, e.toRoute<JoinRoute>().code)
+        }
+        composable<OnlineCreateRoute> {
+            val vm = appViewModel(owner = onlineOwner(nav)) { OnlineHomeViewModel(it.online, it.settings) }
+            val s by vm.state.collectAsStateWithLifecycle()
+            LaunchedEffect(s.open) {
+                s.open?.let { id ->
+                    vm.opened()
+                    nav.navigate(OnlineGameRoute(id)) { popUpTo<OnlineCreateRoute> { inclusive = true } }
+                }
+            }
+            OnlineCreateScreen(busy = s.busy, onBack = { nav.popBackStack() }, onCreate = vm::create)
+        }
+        composable<OnlineGameRoute>(deepLinks = listOf(navDeepLink<OnlineGameRoute>(basePath = "dominoes://game"))) { e ->
+            val id = e.toRoute<OnlineGameRoute>().id
+            val vm = appViewModel(key = "online-$id") { OnlineGameViewModel(id, it.online) }
+            val s by vm.state.collectAsStateWithLifecycle()
+            OnlineGameScreen(s, vm, haptics = settings.haptics, onBack = { nav.popBackStack() })
+        }
         composable<MoreRoute> {
             MoreScreen(
                 stats = stats,
@@ -234,4 +271,23 @@ private fun AppNavHost(
             )
         }
     }
+}
+
+/** The online games list is shared with the create screen, so it lives on the list's back stack entry. */
+@Composable
+private fun onlineOwner(nav: NavHostController): androidx.lifecycle.ViewModelStoreOwner =
+    remember(nav) { runCatching { nav.getBackStackEntry<OnlineRoute>() }.getOrNull() } ?: checkNotNull(androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current)
+
+@Composable
+private fun OnlineHome(nav: NavHostController, code: String?) {
+    val vm = appViewModel { OnlineHomeViewModel(it.online, it.settings) }
+    val s by vm.state.collectAsStateWithLifecycle()
+    OnlineHomeScreen(
+        state = s,
+        vm = vm,
+        initialCode = code,
+        onBack = { if (!nav.popBackStack()) nav.navigate(PlayRoute) },
+        onCreate = { nav.navigate(OnlineCreateRoute) },
+        onOpenGame = { nav.navigate(OnlineGameRoute(it)) },
+    )
 }

@@ -15,8 +15,8 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - name: Tests (engine and app)
-        run: ./gradlew --no-daemon :engine:test :app:testDebugUnitTest
+      - name: Tests (engine, server and app)
+        run: ./gradlew --no-daemon :engine:test :server:test :app:testDebugUnitTest
       - name: Lint
         run: ./gradlew --no-daemon :app:lintDebug
       - name: Build release APK
@@ -32,3 +32,11 @@ jobs:
         with:
           name: domino-apk
           path: app/build/outputs/apk/release/app-release.apk
+
+  server-image:
+    # Checks that the game server's Docker image builds (no Android SDK needed).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build server image
+        run: docker build -t dominoes-server .

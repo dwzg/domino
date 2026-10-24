@@ -27,6 +27,8 @@ data class Settings(
     val haptics: Boolean = true,
     /** Coach feedback is on by default in new games. */
     val coach: Boolean = true,
+    /** Online server address; empty means the one built into the app (if any). */
+    val serverUrl: String = "",
 )
 
 class SettingsRepository(private val store: DataStore<Preferences>) {

@@ -13,8 +13,12 @@ android {
         applicationId = "de.wtzg.domino"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "2.1"
+        // Default online server, e.g. ./gradlew assembleRelease -PdominoServerUrl=https://my-dominoes.fly.dev
+        // Players can also enter a server address in the app.
+        val serverUrl = (project.findProperty("dominoServerUrl") as String?).orEmpty()
+        buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
     }
 
     buildTypes {
@@ -52,6 +56,7 @@ android {
 
 dependencies {
     implementation(project(":engine"))
+    implementation(project(":protocol"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.core.ktx)
@@ -62,6 +67,13 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.websockets)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.json)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.lifecycle.process)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.material.icons.extended)
@@ -75,4 +87,8 @@ dependencies {
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
+    // Runs the real game server inside online end-to-end tests.
+    testImplementation(project(":server"))
+    testImplementation(libs.ktor.server.netty)
 }

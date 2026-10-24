@@ -35,17 +35,6 @@ val SEAT_NAMES = listOf("You", "Rosa", "Hank", "Mabel")
 
 enum class NoteKind { GOOD, TIP, INFO }
 
-/** Everything the game screen can ask for. */
-interface GameActions {
-    fun tapTile(tile: Tile)
-    fun playMove(move: Move)
-    fun draw()
-    fun pass()
-    fun showHint()
-    fun nextHand()
-    fun rematch()
-}
-
 data class CoachNote(val kind: NoteKind, val title: String, val text: String)
 
 data class GameUiState(
@@ -104,7 +93,12 @@ class GameViewModel(
         afterTurn()
     }
 
-    override fun rematch() {
+    override fun overlayPrimary() {
+        val m = _state.value.match ?: return
+        if (m.isOver) rematch() else if (m.round.isOver) nextHand()
+    }
+
+    fun rematch() {
         val g = _state.value.game ?: return
         start(g.match.rules, g.options)
     }
@@ -116,7 +110,7 @@ class GameViewModel(
         viewModelScope.launch { saved.save(null) }
     }
 
-    override fun nextHand() {
+    fun nextHand() {
         val g = _state.value.game ?: return
         if (!g.match.round.isOver || g.match.isOver) return
         val next = g.copy(match = g.match.nextHand())

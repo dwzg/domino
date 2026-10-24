@@ -1,5 +1,6 @@
 package de.wtzg.domino
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,9 +13,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import de.wtzg.domino.navigation.DominoApp
+import kotlinx.coroutines.flow.MutableSharedFlow
 import de.wtzg.domino.ui.theme.DominoTheme
 
 class MainActivity : ComponentActivity() {
+    /** Intents that arrive while running (invite links, notifications), for the navigation to handle. */
+    private val newIntents = MutableSharedFlow<Intent>(extraBufferCapacity = 4)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        newIntents.tryEmit(intent)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -33,7 +43,7 @@ class MainActivity : ComponentActivity() {
             val s = settings ?: return@setContent
             DominoTheme(theme = s.theme, dynamicColor = s.dynamicColor, felt = s.felt) {
                 Surface {
-                    DominoApp(appVm, s)
+                    DominoApp(appVm, s, newIntents)
                 }
             }
         }

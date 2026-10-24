@@ -13,3 +13,10 @@ import kotlinx.serialization.Serializable
 @Serializable object ScoresRoute
 @Serializable object ScoreHistoryRoute
 @Serializable object MoreRoute
+
+/** Your online games. [code] comes from an invite link (dominoes://join/CODE). */
+@Serializable data class OnlineRoute(val code: String? = null)
+@Serializable data class JoinRoute(val code: String)
+@Serializable object OnlineCreateRoute
+/** One online game; also opened from notifications (dominoes://game/ID). */
+@Serializable data class OnlineGameRoute(val id: String)
