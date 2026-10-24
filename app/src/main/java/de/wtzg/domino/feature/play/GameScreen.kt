@@ -28,6 +28,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -93,32 +94,18 @@ fun GameScreen(
     }
     val hint = @Composable {
         if (table.showHint) {
-            TextButton(onClick = actions::showHint, enabled = table.yourTurn && table.legal.size > 1) { Text("Hint") }
+            IconButton(onClick = actions::showHint, enabled = table.yourTurn && table.legal.size > 1) {
+                Icon(Icons.Outlined.Lightbulb, contentDescription = "Hint")
+            }
         }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val landscape = maxWidth > maxHeight
         val short = maxHeight < 480.dp
-        Scaffold(
-            contentWindowInsets = WindowInsets.safeDrawing,
-            topBar = {
-                if (!landscape) {
-                    TopAppBar(
-                        title = { Text(table.title) },
-                        navigationIcon = {
-                            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                        },
-                        actions = {
-                            hint()
-                            topActions()
-                        },
-                    )
-                }
-            },
-        ) { padding ->
+        Scaffold(contentWindowInsets = WindowInsets.safeDrawing) { padding ->
             val felt = @Composable { m: Modifier ->
-                Table(table, actions, onOverlaySecondary, if (landscape) LANDSCAPE_ROW else PORTRAIT_ROW, m)
+                Table(table, actions, onOverlaySecondary, if (landscape) LANDSCAPE_ROW else PORTRAIT_ROW, showTitle = !landscape, m)
             }
             if (landscape) {
                 Row(
@@ -147,21 +134,34 @@ fun GameScreen(
                             Messages(table, compact = short)
                         }
                         StatusRow(table, actions, compact = short)
-                        Hand(table, actions, compact = short)
+                        Hand(table, actions, compact = short, maxHalf = 44.dp)
                     }
                 }
             } else {
+                // Portrait: one slim row on top, the table takes everything in between,
+                // and your hand gets big tiles at the bottom.
                 Column(
                     Modifier
                         .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 12.dp),
+                        .padding(padding),
                 ) {
-                    Opponents(table)
-                    felt(Modifier.weight(1f).fillMaxWidth().padding(vertical = 6.dp))
-                    Messages(table)
-                    StatusRow(table, actions)
-                    Hand(table, actions)
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(end = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        Opponents(table, compact = true, modifier = Modifier.weight(1f))
+                        hint()
+                        topActions()
+                    }
+                    felt(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp))
+                    Column(Modifier.padding(horizontal = 12.dp)) {
+                        Messages(table, compact = true)
+                        StatusRow(table, actions, compact = true)
+                        Hand(table, actions, compact = true, maxHalf = 44.dp)
+                    }
                 }
             }
         }
@@ -170,11 +170,9 @@ fun GameScreen(
 
 /** Each opponent with their score and tiles left; whoever is to move is highlighted. */
 @Composable
-private fun Opponents(table: TableUi, compact: Boolean = false) {
+private fun Opponents(table: TableUi, compact: Boolean = false, modifier: Modifier = Modifier.fillMaxWidth()) {
     Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier.padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -197,13 +195,24 @@ private fun Opponents(table: TableUi, compact: Boolean = false) {
                         if (seat.thinking) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
                         Text(" ${seat.score}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.padding(top = 3.dp)) {
-                        val max = if (table.opponents.size > 1) 5 else 9
-                        repeat(minOf(seat.tiles, max)) { i ->
-                            val t = seat.revealed?.getOrNull(i)
-                            DominoTile(t?.a ?: 0, t?.b ?: 0, half = 8.dp, faceDown = t == null)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 2.dp),
+                    ) {
+                        val revealed = seat.revealed
+                        if (revealed != null) {
+                            // End of the hand: show what they held.
+                            revealed.take(6).forEach { t -> DominoTile(t.a, t.b, half = 7.dp) }
+                            if (revealed.size > 6) Text("+${revealed.size - 6}", style = MaterialTheme.typography.labelSmall)
+                        } else if (compact) {
+                            DominoTile(0, 0, half = 6.dp, faceDown = true)
+                            Text(" ${seat.tiles}", style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            val max = if (table.opponents.size > 1) 5 else 9
+                            repeat(minOf(seat.tiles, max)) { DominoTile(0, 0, half = 8.dp, faceDown = true) }
+                            if (seat.tiles > max) Text("+${seat.tiles - max}", style = MaterialTheme.typography.labelSmall)
                         }
-                        if (seat.tiles > max) Text("+${seat.tiles - max}", style = MaterialTheme.typography.labelSmall)
                     }
                 }
             }
@@ -218,7 +227,14 @@ private fun Opponents(table: TableUi, compact: Boolean = false) {
 }
 
 @Composable
-private fun Table(table: TableUi, actions: GameActions, onSecondary: () -> Unit, rowWidth: Float, modifier: Modifier) {
+private fun Table(
+    table: TableUi,
+    actions: GameActions,
+    onSecondary: () -> Unit,
+    rowWidth: Float,
+    showTitle: Boolean,
+    modifier: Modifier,
+) {
     val targets = when {
         !table.yourTurn -> emptyList()
         table.selected != null -> table.legal.filter { it.tile == table.selected }.map { TableTarget(it, isHint = false) }
@@ -234,6 +250,7 @@ private fun Table(table: TableUi, actions: GameActions, onSecondary: () -> Unit,
             onTarget = actions::playMove,
             badge = table.badge,
             halfWidth = rowWidth,
+            caption = if (showTitle) table.title else null,
             modifier = Modifier.fillMaxSize(),
         )
         table.overlay?.let { o ->
@@ -390,7 +407,7 @@ private fun StatusRow(table: TableUi, actions: GameActions, compact: Boolean = f
 /** Your tiles in one row; they shrink a little when you hold many, and only wrap as a last resort. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Hand(table: TableUi, actions: GameActions, compact: Boolean = false) {
+private fun Hand(table: TableUi, actions: GameActions, compact: Boolean = false, maxHalf: Dp = 28.dp) {
     val hand = table.hand
     val gap = if (hand.size > 9) 4.dp else 6.dp
     BoxWithConstraints(
@@ -400,7 +417,7 @@ private fun Hand(table: TableUi, actions: GameActions, compact: Boolean = false)
     ) {
         val n = hand.size.coerceAtLeast(1)
         // 1dp of slack so rounding never pushes the last tile onto a second row.
-        val half: Dp = ((maxWidth - 1.dp - gap * (n - 1)) / n).coerceIn(18.dp, 28.dp)
+        val half: Dp = ((maxWidth - 1.dp - gap * (n - 1)) / n).coerceIn(18.dp, maxHalf)
         FlowRow(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(gap, Alignment.CenterHorizontally),
