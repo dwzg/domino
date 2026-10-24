@@ -64,14 +64,6 @@ Releases can also do this for you through a Portainer webhook; see
 Games in progress, players and their identities are kept. To stay on a specific release,
 use e.g. `ghcr.io/dwzg/dominoes-server:2.1.0` as the image and change it deliberately.
 
-### Moving from `domino-server` to `dominoes-server`
-
-Until October 2026 the image was called `ghcr.io/dwzg/domino-server`. It no longer gets
-updates. To switch, open the stack in Portainer, change the `image:` line to
-`ghcr.io/dwzg/dominoes-server:latest` and choose **Update the stack** with **Re-pull image**
-on. The data volume stays the same, so games and players are kept. The registry login
-from step 1 works for the new name too.
-
 ### Backups
 
 Everything is in the stack's data volume (`domino.db`). Stop the stack briefly and copy it, for example:
