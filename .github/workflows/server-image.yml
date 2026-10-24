@@ -1,7 +1,7 @@
 name: Server image
 
 # Builds the game server's Docker image on every push and pull request, and publishes
-# it to GitHub Container Registry (ghcr.io/<owner>/domino-server):
+# it to GitHub Container Registry (ghcr.io/<owner>/dominoes-server):
 # - "latest" and the short commit from main
 # - the version number (e.g. 2.1.0 and 2.1) when called by the Release workflow
 on:
@@ -38,7 +38,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository_owner }}/domino-server
+          images: ghcr.io/${{ github.repository_owner }}/dominoes-server
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || inputs.version != '' }}
             type=semver,pattern={{version}},value=${{ inputs.version }},enable=${{ inputs.version != '' }}

@@ -15,7 +15,7 @@ The app refuses plain `http://` servers on the internet.
 
 ### 1. The image
 
-GitHub Actions publishes the server to `ghcr.io/dwzg/domino-server`, for amd64 and arm64:
+GitHub Actions publishes the server to `ghcr.io/dwzg/dominoes-server`, for amd64 and arm64:
 
 | Tag | Updated |
 |---|---|
@@ -62,7 +62,7 @@ Open the stack in Portainer and choose **Update the stack** with **Re-pull image
 Releases can also do this for you through a Portainer webhook; see
 [RELEASING.md](RELEASING.md#automatically-with-a-portainer-webhook).
 Games in progress, players and their identities are kept. To stay on a specific release,
-use e.g. `ghcr.io/dwzg/domino-server:2.1.0` as the image and change it deliberately.
+use e.g. `ghcr.io/dwzg/dominoes-server:2.1.0` as the image and change it deliberately.
 
 ### Backups
 

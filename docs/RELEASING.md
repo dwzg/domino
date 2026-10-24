@@ -7,7 +7,7 @@ A release is a version number like `2.1.0`. Releasing one:
   `gradle.properties` built in
 - publishes a GitHub Release `v2.1.0` with `dominoes-2.1.0.apk` attached and
   generated release notes
-- publishes the server image as `ghcr.io/dwzg/domino-server:2.1.0`, `:2.1` and `:latest`
+- publishes the server image as `ghcr.io/dwzg/dominoes-server:2.1.0`, `:2.1` and `:latest`
 - updates your server through a Portainer webhook, if you've set one up, and waits
   until `/version` reports the new version
 
@@ -85,5 +85,5 @@ Without a webhook, the release only publishes the image, and you update by hand.
 ### By hand
 
 In Portainer, open the stack and choose **Update the stack** with **Re-pull image** on.
-To stay on a specific release instead of `latest`, use `ghcr.io/dwzg/domino-server:2.1.0`
+To stay on a specific release instead of `latest`, use `ghcr.io/dwzg/dominoes-server:2.1.0`
 in the stack.
