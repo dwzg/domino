@@ -1,35 +1,75 @@
-# Domino Score
+# Dominoes
 
-A small Android app for keeping score in domino games.
+An Android app for playing, learning and keeping score in dominoes.
 
 ## Features
 
-- 2–6 players or teams
-- Two ways to win:
-  - **First to a target score** – highest score wins once someone reaches the target
-    (presets 61 / 100 / 150 / 200 / 250, or any number). Good for Block, Draw, All Fives.
-  - **Lowest score after N rounds** – e.g. Mexican Train (13 rounds).
-- Add a round after each hand; tap any round to fix or delete it; undo the last round
-- Leader highlighted, progress toward the target, winner banner with one-tap rematch
-  (a tie for first place means another round is played)
-- Game is saved automatically – close the app and pick up where you left off
-- Past games list with a win count per player
-- Light/dark theme, Material You colors on Android 12+
+**Play** against 1–3 computer opponents (Easy, Normal, Hard) in four games:
 
-## Install
+| Game | How it works | Default target |
+|---|---|---|
+| Draw | Match an open end; if you can't, draw from the boneyard. | 60 |
+| Block | Like Draw, but you pass instead of drawing. | 60 |
+| All Fives | Score whenever the open ends add up to a multiple of 5. The opening double is a spinner (four sides). | 100 |
+| All Threes | Like All Fives with multiples of 3. | 90 |
 
-Every push builds an APK on GitHub Actions: open the latest **Build APK** run under the
-*Actions* tab and download the `domino-score-apk` artifact, unzip it and open
-`app-release.apk` on your phone (allow installing from unknown sources).
+- The default targets and scoring follow the domino tables in **Red Dead Redemption 2**, as described in player guides. Fives and Threes round end-of-hand points to the nearest 5 or 3, and the match ends the moment someone reaches the target.
+- A coach rates your moves and explains better ones. There's also a Hint button and a running log of what the other players revealed by drawing or passing.
+- The table is laid out like a real one, with snaking lines, crosswise doubles and a spinner cross. It animates as tiles are played.
+- A match in progress is saved, so you can leave and resume it later.
 
-## Build locally
+**Play with friends** online, live or turn by turn.
+- Invite friends with a code or a link, and fill empty seats with computer players.
+- In turn-by-turn games you get a notification when it's your move.
+- This needs a small game server that you host. See [docs/ONLINE.md](docs/ONLINE.md).
 
-Requires JDK 17+ and the Android SDK (API 35).
+**Learn**
+- 20 lessons across five sections: basics, strategy, scoring games, advanced play and Red Dead Redemption 2.
+- "Find the best move" puzzles, taken from real games between strong AIs.
+- A tip of the day.
 
-```sh
-./gradlew testDebugUnitTest   # unit tests
-./gradlew assembleRelease     # app/build/outputs/apk/release/app-release.apk
+**Scores**: a score keeper for real-life games.
+- Any number of players from 2 to 6.
+- Win by reaching a target score, or by having the lowest score after a set number of rounds (Mexican Train style).
+- Past games are kept.
+
+**More**
+- Stats per game: wins, coach agreement and puzzle streaks.
+- Settings: theme, Material You colours, table felt colour, computer speed, vibration, and whether the coach is on by default.
+
+## Project structure
+
+```
+engine/   Pure Kotlin game logic, no Android: rules, scoring, AI and coach, puzzles, table layout.
+protocol/ Messages between app and server (shared, so they can't drift apart).
+server/   Ktor game server for online play: SQLite storage, WebSockets, computer seats.
+app/      Jetpack Compose UI.
+  data/        DataStore repositories (settings, stats, saved game, score keeper)
+  feature/     play, learn, scorekeeper and more screens with their ViewModels
+  navigation/  Type-safe Navigation Compose routes, bottom bar or navigation rail
+  ui/          Theme and shared components (tiles, table)
 ```
 
-The release build is signed with the debug key so it installs without extra setup.
-Use your own signing key before publishing to the Play Store.
+- **Architecture:** unidirectional data flow, with ViewModels exposing `StateFlow` and manual dependency injection through `AppContainer`. Game state is `@Serializable` so it can be saved and resumed.
+- **Dependencies:** versions live in `gradle/libs.versions.toml`.
+- **Data from version 1:** score keeper games and training stats from version 1 are migrated automatically.
+
+## Build and test
+
+You need JDK 17 or newer and the Android SDK (API 35).
+
+```sh
+./gradlew :engine:test              # rules, scoring, AI, layout, puzzles
+./gradlew :server:test              # online API, hidden hands, live updates, storage
+./gradlew :app:testDebugUnitTest    # ViewModels, lessons, migrations, UI tests, online end-to-end
+./gradlew :app:lintDebug
+./gradlew :app:assembleRelease      # app/build/outputs/apk/release/app-release.apk
+```
+
+To run the game server locally, use `./gradlew :server:run`. To host it, see [docs/ONLINE.md](docs/ONLINE.md): there are ready-made Portainer stacks in `deploy/portainer/`, and Fly.io works too. The server image is published to `ghcr.io/dwzg/domino-server`.
+
+Every push builds the APK on GitHub Actions. Download it as the `domino-apk` artifact from the **Build APK** run.
+
+The release build is signed with the debug key so it installs without extra setup. Use your own signing key before publishing to the Play Store.
+
+Not affiliated with Rockstar Games.

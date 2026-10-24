@@ -1,0 +1,134 @@
+package de.wtzg.domino.feature.online
+
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import de.wtzg.domino.engine.GameMode
+import de.wtzg.domino.feature.play.rulesSummary
+import de.wtzg.domino.protocol.CreateGameRequest
+import de.wtzg.domino.protocol.Pace
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun OnlineCreateScreen(busy: Boolean, onBack: () -> Unit, onCreate: (CreateGameRequest) -> Unit) {
+    var mode by rememberSaveable { mutableStateOf(GameMode.ALL_FIVES) }
+    var players by rememberSaveable { mutableIntStateOf(2) }
+    var target by rememberSaveable { mutableIntStateOf(GameMode.ALL_FIVES.defaultTarget) }
+    var pace by rememberSaveable { mutableStateOf(Pace.LIVE) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("New online game") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } },
+            )
+        },
+    ) { padding ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Label("Game")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                GameMode.entries.forEach { m ->
+                    FilterChip(
+                        selected = mode == m,
+                        onClick = { mode = m; target = m.defaultTarget },
+                        label = { Text(m.title) },
+                    )
+                }
+            }
+            Text(mode.rulesSummary(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Label("Players at the table")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                (2..4).forEachIndexed { i, n ->
+                    SegmentedButton(selected = players == n, onClick = { players = n }, shape = SegmentedButtonDefaults.itemShape(i, 3)) {
+                        Text("$n")
+                    }
+                }
+            }
+            Text(
+                "Seats nobody takes are filled with computer players when you start.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Label("Play to")
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                (listOf(mode.defaultTarget) + listOf(60, 100, 150).filter { it != mode.defaultTarget }).forEach { t ->
+                    FilterChip(
+                        selected = target == t,
+                        onClick = { target = t },
+                        label = { Text(if (t == mode.defaultTarget) "$t · Red Dead" else "$t") },
+                    )
+                }
+            }
+
+            Label("Pace")
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                SegmentedButton(selected = pace == Pace.LIVE, onClick = { pace = Pace.LIVE }, shape = SegmentedButtonDefaults.itemShape(0, 2)) {
+                    Text("Live")
+                }
+                SegmentedButton(
+                    selected = pace == Pace.TURN_BASED,
+                    onClick = { pace = Pace.TURN_BASED },
+                    shape = SegmentedButtonDefaults.itemShape(1, 2),
+                ) { Text("Turn by turn") }
+            }
+            Text(
+                if (pace == Pace.LIVE) "Everyone plays at the same time, like sitting at one table."
+                else "Take your turn whenever you like. The app lets you know when it's your move.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                onClick = { onCreate(CreateGameRequest(mode, players, target, pace)) },
+                enabled = !busy,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+                    .height(52.dp),
+            ) { Text("Create and invite friends") }
+        }
+    }
+}
+
+@Composable
+private fun Label(text: String) {
+    Text(text, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+}

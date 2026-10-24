@@ -15,9 +15,21 @@ jobs:
           distribution: temurin
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - name: Test and build
-        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
+      - name: Tests (engine, server and app)
+        run: ./gradlew --no-daemon :engine:test :server:test :app:testDebugUnitTest
+      - name: Lint
+        run: ./gradlew --no-daemon :app:lintDebug
+      - name: Build release APK
+        run: ./gradlew --no-daemon :app:assembleRelease
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+            engine/build/reports/
       - uses: actions/upload-artifact@v4
         with:
-          name: domino-score-apk
+          name: domino-apk
           path: app/build/outputs/apk/release/app-release.apk
+
